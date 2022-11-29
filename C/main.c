@@ -13,9 +13,10 @@ int main() {
 
 	// TRAINING
 	{
-		int number_imgs = 5000;
+		int number_imgs = 50000, batchSize = 1, latent_size = 128;
+		double lr = 0.00005;
 		Img** imgs = csv_to_imgs("data/mnist_train.csv", number_imgs);
-		NeuralNetwork* net = aeCreate(128, 0.0001);
+		NeuralNetwork* net = aeCreate(latent_size, lr, batchSize);
 		network_train_batch_imgs(net, imgs, number_imgs);
 		network_save(net, "testing_net");
 		imgs_free(imgs, number_imgs);
