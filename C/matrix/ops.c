@@ -32,8 +32,18 @@ Matrix* add(Matrix *m1, Matrix *m2) {
 		}
 		return m;
 	} else {
-		printf("Dimension mistmatch add: %dx%d %dx%d\n", m1->rows, m1->cols, m2->rows, m2->cols);
-		exit(1);
+		if (m1->rows == m2->rows){
+			Matrix *m = matrix_create(m1->rows, m1->cols);
+			for (int i = 0; i < m1->rows; i++) {
+				for (int j = 0; j < m2->cols; j++) {
+					m->entries[i][j] = m1->entries[i][j] + m2->entries[i][0];
+				}
+			}
+		}
+		else{
+			printf("Dimension mistmatch add: %dx%d %dx%d\n", m1->rows, m1->cols, m2->rows, m2->cols);
+			exit(1);
+		}
 	}
 }
 

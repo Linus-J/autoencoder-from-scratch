@@ -4,20 +4,24 @@
 #include "../util/img.h"
 
 typedef struct {
-	int input;
+	int X;
 	int hiddenEnc;
 	int mu;
 	int hiddenDec;
 	int output;
 	double learning_rate;
 	Matrix* hiddenWeightsEnc;
+	Matrix* hiddenBiasEnc;
 	Matrix* hiddenWeightsMu;
+	Matrix* hiddenBiasMu;
 	Matrix* hiddenWeightsDec;
+	Matrix* hiddenBiasDec;
 	Matrix* outputWeights;
+	Matrix* outputBias;
 } NeuralNetwork;
 
 // NeuralNetwork* network_create(int input, int hidden, int output, double lr);
-NeuralNetwork* aeCreate(int latentDim, double lr);
+NeuralNetwork* aeCreate(int latentDim, double lr, int batchSize);
 Matrix* reparameterise(Matrix* mu, Matrix* log_var);
 double network_train(NeuralNetwork* net, Matrix* input_data);
 void network_train_batch_imgs(NeuralNetwork* net, Img** imgs, int batch_size);
