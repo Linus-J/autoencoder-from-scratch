@@ -1,19 +1,11 @@
-## Autoencoder implementation
-This project implements an autoencoder (AE) trained on the MNIST dataset. The AE uses no convolutional layers and the encoder and decoder parts are comprised of 2 dense layers each. 
-
-The source code is written in Python using Pytorch/Numpy, Cython and C to compare execution times during training.
-
-### References: 
-- [Basic Neural Network in C](https://github.com/markkraay/mnist-from-scratch "Basic Neural Network in C")
-- [Normal distribution generator for C](https://people.sc.fsu.edu/~jburkardt/cpp_src/ziggurat_inline/ziggurat_inline.html "Normal distribution generator for C")
-- [PyTorch AE](https://medium.com/pytorch/implementing-an-autoencoder-in-pytorch-19baa22647d1 "PyTorch AE")
-- [DEMON Adam optimiser](https://github.com/JRC1995/DemonRangerOptimizer "DEMON Adam optimiser")
-
-### Current progress:
-- AE implemented using vanilla GD in C
-- AE implemented in PyTorch and Cython
-
-### Future aims: 
-- Implement DEMON Adam optimiser to C source code.
-- Implement a disentangled VAE in all languages.
-- Test and compare execution times.
+#### Execution instructions: (Linux only)
+Open your terminal in this directory and run the following commands:
+##### Step 1 (Download the MNIST dataset): 
+`bash download.sh `
+##### Step 2 (Compile the source code): 
+`make`
+##### Step 3 (Execute the program): 
+`./main`
+##### Finished
+##### Customise:
+Alter the source code in main.c and nn.c to edit layer dimensions and learning rate.
