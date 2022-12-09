@@ -1,4 +1,4 @@
-#### C autoencoder fork from [here](https://github.com/markkraay/mnist-from-scratch)
+#### C autoencoder fork from C based MNIST classifier [here](https://github.com/markkraay/mnist-from-scratch)
 #### Python autoencoder referenced from [here](https://medium.com/pytorch/implementing-an-autoencoder-in-pytorch-19baa22647d1)
 
 ## Autoencoder implementation
