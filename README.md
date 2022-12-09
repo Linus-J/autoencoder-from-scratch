@@ -1,4 +1,8 @@
+### Fork from [https://github.com/markkraay/mnist-from-scratch](https://github.com/markkraay/mnist-from-scratch)
+
 ## Autoencoder implementation
+
+
 This project implements an autoencoder (AE) trained on the MNIST dataset. The AE uses no convolutional layers and the encoder and decoder parts are comprised of 2 dense layers each. 
 
 The source code is written in Python using Pytorch/Numpy, Cython and C to compare execution times during training.
