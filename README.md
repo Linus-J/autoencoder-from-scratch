@@ -16,6 +16,7 @@ The source code is written in Python using Pytorch/Numpy, Cython and C to compar
 
 ### Current progress:
 - AE implemented using vanilla SGD in C
+- Implemented batch training and composite matrix operations in C
 - AE implemented in PyTorch and Cython with DEMON Adam optimiser
 
 ### Future aims: 
