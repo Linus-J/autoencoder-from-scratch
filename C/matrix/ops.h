@@ -2,11 +2,12 @@
 
 #include "matrix.h"
 
-Matrix* multiply(Matrix* m1, Matrix* m2);
-Matrix* add(Matrix* m1, Matrix* m2);
-Matrix* subtract(Matrix* m1, Matrix* m2);
-Matrix* dot(Matrix* m1, Matrix* m2);
-Matrix* apply(double (*func)(double), Matrix* m);
-Matrix* scale(double n, Matrix* m);
-Matrix* addScalar(double n, Matrix* m);
-Matrix* transpose(Matrix* m);
+Matrix* multiply(Matrix* m1, Matrix* m2, unsigned short int comp);
+Matrix* divide(Matrix *m1, Matrix *m2, unsigned short int comp);
+Matrix* add(Matrix* m1, Matrix* m2, unsigned short int comp);
+Matrix* subtract(Matrix* m1, Matrix* m2, unsigned short int comp);
+Matrix* dot(Matrix* m1, Matrix* m2, unsigned short int comp);
+Matrix* apply(double (*func)(double), Matrix* m, unsigned short int comp);
+Matrix* scale(double n, Matrix* m, unsigned short int comp);
+Matrix* addScalar(double n, Matrix* m, unsigned short int comp);
+Matrix* transpose(Matrix* m, unsigned short int comp);

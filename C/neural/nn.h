@@ -29,8 +29,8 @@ typedef struct {
 // NeuralNetwork* network_create(int input, int hidden, int output, double lr);
 NeuralNetwork* aeCreate(int latentDim, double lr, int batchSize);
 Matrix* reparameterise(Matrix* mu, Matrix* log_var);
-double network_train(NeuralNetwork* net, Matrix* input_data, int batch_size);
-void network_train_batch_imgs(NeuralNetwork* net, Img** imgs, int training_size, int batch_size, int epochs);
+double network_train(NeuralNetwork* net, Matrix* input_data, int batch_size, Matrix** vds, Matrix** sds);
+void network_train_batch_imgs(NeuralNetwork* net, Img** imgs, int training_size, int batch_size, int epochs, int latent_dim);
 //Matrix* network_predict_img(NeuralNetwork* net, Img* img);
 //double network_predict_imgs(NeuralNetwork* net, Img** imgs, int n);
 Img* network_predict(NeuralNetwork* net, Img* input_data, int batch_size);

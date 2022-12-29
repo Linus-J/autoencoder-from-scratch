@@ -10,8 +10,8 @@ double sigmoid(double input) {
 Matrix* sigmoidPrime(Matrix* m) {
 	Matrix* ones = matrix_create(m->rows, m->cols);
 	matrix_fill(ones, 1);
-	Matrix* subtracted = subtract(ones, m);
-	Matrix* multiplied = multiply(m, subtracted);
+	Matrix* subtracted = subtract(ones, m, 0);
+	Matrix* multiplied = multiply(m, subtracted, 0);
 	matrix_free(ones);
 	matrix_free(subtracted);
 	return multiplied;

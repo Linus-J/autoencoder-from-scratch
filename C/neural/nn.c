@@ -19,7 +19,7 @@
 // 2) Allow batch image input as X (784xm) (m=100)
 // 3) Add another layer
 // 4) Use better descent function
-// 784, 512, 128, 512, 784
+// 784, 512, 256, 128, 256, 512, 784
 NeuralNetwork* aeCreate(int latentDim, double lr, int batchSize) {
 	NeuralNetwork* net = malloc(sizeof(NeuralNetwork));
 	net->learning_rate = lr;
@@ -100,47 +100,39 @@ Matrix* reparameterise(Matrix* mu, Matrix* log_var){
 			eps -> entries[i][j] = r4_nor_value();
 		}
 	}
-	Matrix* multiplied = multiply(eps, std);
-	Matrix* res = add(mu, multiplied);
+	Matrix* multiplied = multiply(eps, std, 0);
+	Matrix* res = add(mu, multiplied, 0);
 	matrix_free(std);
 	matrix_free(eps);
 	matrix_free(multiplied);
 	return res;
 }
 
-double network_train(NeuralNetwork* net, Matrix* X, int batch_size) {
+double network_train(NeuralNetwork* net, Matrix* X, int batch_size, Matrix** vds, Matrix** sds) {
 	// Feed forward
 	// Encode	
-	Matrix* hiddenEncIn = dot(net->hiddenWeightsEnc, X);
-	Matrix* z0 = add(hiddenEncIn,net->hiddenBiasEnc);
-	Matrix* A0 = apply(relu, z0);
+	Matrix* z0 = add(dot(net->hiddenWeightsEnc, X, 0),net->hiddenBiasEnc, 1);
+	Matrix* A0 = apply(relu, z0, 0);
 
-	Matrix* hiddenEnc2In = dot(net->hiddenWeightsEnc2, A0);
-	Matrix* z1 = add(hiddenEnc2In,net->hiddenBiasEnc2);
-	Matrix* A1 = apply(relu, z1);
+	Matrix* z1 = add(dot(net->hiddenWeightsEnc2, A0, 0),net->hiddenBiasEnc2, 1);
+	Matrix* A1 = apply(relu, z1, 0);
 
-	Matrix* mu = dot(net->hiddenWeightsMu, A1);
-	Matrix* z2 = add(mu,net->hiddenBiasMu);
-	Matrix* A2 = apply(relu, z2);
+	Matrix* z2 = add(dot(net->hiddenWeightsMu, A1, 0),net->hiddenBiasMu, 1);
+	Matrix* A2 = apply(relu, z2, 0);
 
 	// Decode
-	Matrix* hiddenDecIn = dot(net->hiddenWeightsDec, A2);
-	Matrix* z3 = add(hiddenDecIn, net->hiddenBiasDec);
-	Matrix* A3 = apply(relu, z3);
+	Matrix* z3 = add(dot(net->hiddenWeightsDec, A2, 0), net->hiddenBiasDec, 0);
+	Matrix* A3 = apply(relu, z3, 0);
 
-	Matrix* hiddenDec2In = dot(net->hiddenWeightsDec2, A3);
-	Matrix* z4 = add(hiddenDec2In, net->hiddenBiasDec2);
-	Matrix* A4 = apply(relu, z4);
+	Matrix* z4 = add(dot(net->hiddenWeightsDec2, A3, 0), net->hiddenBiasDec2, 0);
+	Matrix* A4 = apply(relu, z4, 0);
 
-	Matrix* final_inputs = dot(net->outputWeights, A4);
-	Matrix* z5 = add(final_inputs,net->outputBias);
-	Matrix* A5 = apply(relu, z5);
+	Matrix* z5 = add(dot(net->outputWeights, A4, 0),net->outputBias, 0);
+	Matrix* A5 = apply(relu, z5, 0);
 
 	// Calc loss y^-y
 	double loss = 0.0;
-	//printf("boom\n");
 	Matrix* dA5 = matrix_create(784, batch_size);
-	double temp = 0;
 	for (int i = 0; i < X->rows; i++){
 		for (int j = 0; j < X->cols; j++){
 			loss += 0.5*pow(X->entries[i][j]-A5->entries[i][j],2);
@@ -152,174 +144,132 @@ double network_train(NeuralNetwork* net, Matrix* X, int batch_size) {
 
 	//Output layer
 	Matrix* primed_mat = reluPrime(z5);
-	Matrix* dzn = multiply(dA5, primed_mat); //dz5 (also db3 whilst input is a vector)
-	Matrix* transposed_mat = transpose(A4);
-	Matrix* dot_mat = dot(dzn, transposed_mat); //dw5
-	Matrix* scaled_mat = scale(-(net->learning_rate), dot_mat);
-	Matrix* added_mat = add(net->outputWeights, scaled_mat);
+	Matrix* dzn = multiply(dA5, primed_mat, 0); //dz5 (also db3 whilst input is a vector)
+	Matrix* dot_mat = dot(dzn, transpose(A4, 0), 2); //dw5
+	//Update W5
+
+	//Can this be made one line such that when multiple  operations are in one line the memomry is freed 
+	Matrix* newVD = add(scale(0.9,vds[0], 0),scale(0.1,dot_mat, 0), 3);
+	matrix_free(newVD);
+
+	Matrix* added_mat = add(net->outputWeights, scale(-(net->learning_rate), dot_mat, 0), 2);
 	
 	matrix_free(net->outputWeights);
 	net->outputWeights = added_mat;
-	
-	matrix_free(scaled_mat);
-	scaled_mat = scale(-(net->learning_rate), dzn);
-	Matrix* added_matB = add(net->outputBias, scaled_mat);
+	//Update b5
+	Matrix* added_matB = add(net->outputBias, scale(-(net->learning_rate), dzn, 0), 2);
 	matrix_free(net->outputBias);
 	net->outputBias = added_matB;
 
 	matrix_free(primed_mat);
-	
-	matrix_free(transposed_mat);
-	matrix_free(dot_mat);
-	matrix_free(scaled_mat);
-	
+	matrix_free(dot_mat);	
 
 	assert(is_valid_double(net-> outputWeights -> entries[0][0]));
 	// printf("Output layer done\n");
 	//Decoder2 layer
-	transposed_mat = transpose(net->outputWeights);
-	dot_mat = dot(transposed_mat, dzn);
+	dot_mat = dot(transpose(net->outputWeights, 0), dzn, 1);
 	primed_mat = reluPrime(z4);
 	matrix_free(dzn);
-	dzn = multiply(dot_mat, primed_mat); //dz4
+	dzn = multiply(dot_mat, primed_mat, 0); //dz4
 
-	matrix_free(transposed_mat);
 	matrix_free(dot_mat);
 
-	transposed_mat = transpose(A3);
-	dot_mat = dot(dzn, transposed_mat); //dw4
-	scaled_mat = scale(-(net->learning_rate), dot_mat);
-	added_mat = add(net->hiddenWeightsDec2, scaled_mat);
+	dot_mat = dot(dzn, transpose(A3, 0), 2); //dw4
+	added_mat = add(net->hiddenWeightsDec2, scale(-(net->learning_rate), dot_mat, 0), 2);
 	
 	matrix_free(net->hiddenWeightsDec2);
 	net->hiddenWeightsDec2 = added_mat;
 	
-	matrix_free(scaled_mat);
-	scaled_mat = scale(-(net->learning_rate), dzn);
-	added_matB = add(net->hiddenBiasDec2, scaled_mat);
+	added_matB = add(net->hiddenBiasDec2, scale(-(net->learning_rate), dzn, 0), 2);
 	matrix_free(net->hiddenBiasDec2);
 	net->hiddenBiasDec2 = added_matB;
 
 	matrix_free(primed_mat);
-	matrix_free(transposed_mat);
 	matrix_free(dot_mat);
-	matrix_free(scaled_mat);
 
 	// printf("Output layer done\n");
 	//Decoder layer
-	transposed_mat = transpose(net->hiddenWeightsDec2);
-	dot_mat = dot(transposed_mat, dzn);
+	dot_mat = dot(transpose(net->hiddenWeightsDec2, 0), dzn, 1);
 	primed_mat = reluPrime(z3);
 	matrix_free(dzn);
-	dzn = multiply(dot_mat, primed_mat); //dz3
+	dzn = multiply(dot_mat, primed_mat, 0); //dz3
 
-	matrix_free(transposed_mat);
 	matrix_free(dot_mat);
 
-	transposed_mat = transpose(A2);
-	dot_mat = dot(dzn, transposed_mat); //dw3
-	scaled_mat = scale(-(net->learning_rate), dot_mat);
-	added_mat = add(net->hiddenWeightsDec, scaled_mat);
+	dot_mat = dot(dzn, transpose(A2, 0), 2); //dw3
+	added_mat = add(net->hiddenWeightsDec, scale(-(net->learning_rate), dot_mat, 0), 2);
 	
 	matrix_free(net->hiddenWeightsDec);
 	net->hiddenWeightsDec = added_mat;
 	
-	matrix_free(scaled_mat);
-	scaled_mat = scale(-(net->learning_rate), dzn);
-	added_matB = add(net->hiddenBiasDec, scaled_mat);
+	added_matB = add(net->hiddenBiasDec, scale(-(net->learning_rate), dzn, 0), 2);
 	matrix_free(net->hiddenBiasDec);
 	net->hiddenBiasDec = added_matB;
 
 	matrix_free(primed_mat);
-	matrix_free(transposed_mat);
 	matrix_free(dot_mat);
-	matrix_free(scaled_mat);
 	// printf("Decoder layer done\n");
 	//Latent layer
-	transposed_mat = transpose(net->hiddenWeightsDec);
-	dot_mat = dot(transposed_mat, dzn);
+	dot_mat = dot(transpose(net->hiddenWeightsDec, 0), dzn, 1);
 	primed_mat = reluPrime(z2);
 	matrix_free(dzn);
-	dzn = multiply(dot_mat, primed_mat); //dz2
+	dzn = multiply(dot_mat, primed_mat, 0); //dz2
 
-	matrix_free(transposed_mat);
 	matrix_free(dot_mat);
 
-	transposed_mat = transpose(A1);
-	dot_mat = dot(dzn, transposed_mat); //dw2
-	scaled_mat = scale(-(net->learning_rate), dot_mat);
-	added_mat = add(net->hiddenWeightsMu, scaled_mat);
+	dot_mat = dot(dzn, transpose(A1, 0), 2); //dw2
+	added_mat = add(net->hiddenWeightsMu, scale(-(net->learning_rate), dot_mat, 0), 2);
 	
 	matrix_free(net->hiddenWeightsMu);
 	net->hiddenWeightsMu = added_mat;
 	
-	matrix_free(scaled_mat);
-	scaled_mat = scale(-(net->learning_rate), dzn);
-	added_matB = add(net->hiddenBiasMu, scaled_mat);
+	added_matB = add(net->hiddenBiasMu, scale(-(net->learning_rate), dzn, 0), 2);
 	matrix_free(net->hiddenBiasMu);
 	net->hiddenBiasMu = added_matB;
 
 	matrix_free(primed_mat);
-	matrix_free(transposed_mat);
 	matrix_free(dot_mat);
-	matrix_free(scaled_mat);
 	// printf("Latent layer done\n");
 	//Encoding2 layer
-	transposed_mat = transpose(net->hiddenWeightsMu);
-	dot_mat = dot(transposed_mat, dzn);
+	dot_mat = dot(transpose(net->hiddenWeightsMu, 0), dzn, 1);
 	primed_mat = reluPrime(z1);
 	matrix_free(dzn);
-	dzn = multiply(dot_mat, primed_mat); //dz1
+	dzn = multiply(dot_mat, primed_mat, 0); //dz1
 
-	matrix_free(transposed_mat);
 	matrix_free(dot_mat);
 
-	transposed_mat = transpose(A0);
-	dot_mat = dot(dzn, transposed_mat); //dw1
-	scaled_mat = scale(-(net->learning_rate), dot_mat);
-	added_mat = add(net->hiddenWeightsEnc2, scaled_mat);
+	dot_mat = dot(dzn, transpose(A0, 0), 2); //dw1
+	added_mat = add(net->hiddenWeightsEnc2, scale(-(net->learning_rate), dot_mat, 0), 2);
 	
 	matrix_free(net->hiddenWeightsEnc2);
 	net->hiddenWeightsEnc2 = added_mat;
 	
-	matrix_free(scaled_mat);
-	scaled_mat = scale(-(net->learning_rate), dzn);
-	added_matB = add(net->hiddenBiasEnc2, scaled_mat);
+	added_matB = add(net->hiddenBiasEnc2, scale(-(net->learning_rate), dzn, 0), 2);
 	matrix_free(net->hiddenBiasEnc2);
 	net->hiddenBiasEnc2 = added_matB;
 
 	matrix_free(primed_mat);
-	matrix_free(transposed_mat);
 	matrix_free(dot_mat);
-	matrix_free(scaled_mat);
 	//Encoding layer
-	transposed_mat = transpose(net->hiddenWeightsEnc2);
-	dot_mat = dot(transposed_mat, dzn);
+	dot_mat = dot(transpose(net->hiddenWeightsEnc2, 0), dzn, 1);
 	primed_mat = reluPrime(z0);
 	matrix_free(dzn);
-	dzn = multiply(dot_mat, primed_mat); //dz0
+	dzn = multiply(dot_mat, primed_mat, 0); //dz0
 
-	matrix_free(transposed_mat);
 	matrix_free(dot_mat);
 
-	transposed_mat = transpose(X);
-	dot_mat = dot(dzn, transposed_mat); //dw0
-	scaled_mat = scale(-(net->learning_rate), dot_mat);
-	added_mat = add(net->hiddenWeightsEnc, scaled_mat);
+	dot_mat = dot(dzn, transpose(X, 0), 2); //dw0
+	added_mat = add(net->hiddenWeightsEnc, scale(-(net->learning_rate), dot_mat, 0), 2);
 	
 	matrix_free(net->hiddenWeightsEnc);
 	net->hiddenWeightsEnc = added_mat;
-	
-	matrix_free(scaled_mat);
-	scaled_mat = scale(-(net->learning_rate), dzn);
-	added_matB = add(net->hiddenBiasEnc, scaled_mat);
+
+	added_matB = add(net->hiddenBiasEnc, scale(-(net->learning_rate), dzn, 0), 2);
 	matrix_free(net->hiddenBiasEnc);
 	net->hiddenBiasEnc = added_matB;
 
 	matrix_free(primed_mat);
-	matrix_free(transposed_mat);
 	matrix_free(dot_mat);
-	matrix_free(scaled_mat);
 	// printf("Backprop done\n");
 	// Free hidden matrices
 	matrix_free(z0);
@@ -328,15 +278,9 @@ double network_train(NeuralNetwork* net, Matrix* X, int batch_size) {
 	matrix_free(z3);
 	matrix_free(z4);
 	matrix_free(z5);
-	matrix_free(hiddenEncIn);
-	matrix_free(hiddenEnc2In);
 	matrix_free(A0);
-	matrix_free(mu);
 	matrix_free(A1);
-	matrix_free(hiddenDecIn);
-	matrix_free(hiddenDec2In);
 	matrix_free(A2);
-	matrix_free(final_inputs);
 	matrix_free(A3);
 	matrix_free(A4);
 	matrix_free(A5);
@@ -345,7 +289,7 @@ double network_train(NeuralNetwork* net, Matrix* X, int batch_size) {
 	return loss;
 }
 
-void network_train_batch_imgs(NeuralNetwork* net, Img** imgs, int training_size, int batch_size, int epochs) {
+void network_train_batch_imgs(NeuralNetwork* net, Img** imgs, int training_size, int batch_size, int epochs, int latent_dim) {
 	r4_nor_setup();
 	double loss = 0.0;
 	Matrix** batches = malloc(training_size/batch_size * sizeof(Matrix*));
@@ -360,16 +304,75 @@ void network_train_batch_imgs(NeuralNetwork* net, Img** imgs, int training_size,
 			matrix_free(img_data);
 		}
 	}
+	// 784, 512, 256, 128, 256, 512, 784
+	Matrix** vds = malloc(12 * sizeof(Matrix*));
+	vds[0] = matrix_create(784, 512);
+	vds[1] = matrix_create(512, 256);
+	vds[2] = matrix_create(256, latent_dim);
+	vds[3] = matrix_create(latent_dim, 256);
+	vds[4] = matrix_create(256, 512);
+	vds[5] = matrix_create(512, 784);
+	matrix_fill(vds[0], 0.0);
+	matrix_fill(vds[1], 0.0);
+	matrix_fill(vds[2], 0.0);
+	matrix_fill(vds[3], 0.0);
+	matrix_fill(vds[4], 0.0);
+	matrix_fill(vds[5], 0.0);
+	vds[6]= matrix_create(512, batch_size);
+	vds[7] = matrix_create(256, batch_size);
+	vds[8] = matrix_create(latent_dim, batch_size);
+	vds[9]= matrix_create(256, batch_size);
+	vds[10] = matrix_create(512, batch_size);
+	vds[11] = matrix_create(784, batch_size); 
+	matrix_fill(vds[6], 0.0);
+	matrix_fill(vds[7], 0.0);
+	matrix_fill(vds[8], 0.0);
+	matrix_fill(vds[9], 0.0);
+	matrix_fill(vds[10], 0.0);
+	matrix_fill(vds[11], 0.0);
+
+	Matrix** sds = malloc(12 * sizeof(Matrix*));
+	sds[0] = matrix_create(512, 784);
+	sds[1] = matrix_create(256, 512);
+	sds[2] = matrix_create(latent_dim, 256);
+	sds[3] = matrix_create(256, latent_dim);
+	sds[4] = matrix_create(512, 256);
+	sds[5] = matrix_create(784, 512);
+	matrix_fill(sds[0], 0.0);
+	matrix_fill(sds[1], 0.0);
+	matrix_fill(sds[2], 0.0);
+	matrix_fill(sds[3], 0.0);
+	matrix_fill(sds[4], 0.0);
+	matrix_fill(sds[5], 0.0);
+	sds[6]= matrix_create(512, batch_size);
+	sds[7] = matrix_create(256, batch_size);
+	sds[8] = matrix_create(latent_dim, batch_size);
+	sds[9]= matrix_create(256, batch_size);
+	sds[10] = matrix_create(512, batch_size);
+	sds[11] = matrix_create(784, batch_size); 
+	matrix_fill(sds[6], 0.0);
+	matrix_fill(sds[7], 0.0);
+	matrix_fill(sds[8], 0.0);
+	matrix_fill(sds[9], 0.0);
+	matrix_fill(sds[10], 0.0);
+	matrix_fill(sds[11], 0.0);
+
 	for (int k = 0; k < epochs; k++) {
 		printf("Epoch. %d\n", k);
 		for (int i = 0; i < training_size/batch_size; i++) {
-			loss = network_train(net, batches[i], batch_size);
+			loss = network_train(net, batches[i], batch_size, vds, sds);
 			printf("Batch No. %d\n", i);
 			printf("Loss. %f\n", loss);
 			matrix_free(batches[i]);
 		}
 	}
 	free(batches);
+	for (int i=0; i<12; i++){
+		free(sds[i]);
+		free(vds[i]);
+	}
+	free(sds);
+	free(vds);
 }
 
 Img* network_predict(NeuralNetwork* net, Img* input_data, int batch_size) {
@@ -377,8 +380,6 @@ Img* network_predict(NeuralNetwork* net, Img* input_data, int batch_size) {
 	new_img -> img_data =  matrix_create(28, 28);
 	Matrix* img_mat = matrix_flatten(input_data->img_data, 0);
 	Matrix* mymat = matrix_create(784,batch_size);
-
-	printf("hello\n");
 	for (int i = 0; i < batch_size; i++) {
 		for (int j=0; j<784; j++) {
 			if (i==0){
@@ -389,36 +390,27 @@ Img* network_predict(NeuralNetwork* net, Img* input_data, int batch_size) {
 			}
 		}
 	}
-	// matrix_print(mymat);
-	printf("hello\n");
-	Matrix* hiddenEncIn = dot(net->hiddenWeightsEnc, mymat);
-	Matrix* z0 = add(hiddenEncIn,net->hiddenBiasEnc);
-	Matrix* A0 = apply(relu, z0);
-	printf("hello\n");
-	Matrix* hiddenEnc2In = dot(net->hiddenWeightsEnc2, A0);
-	Matrix* z1 = add(hiddenEnc2In,net->hiddenBiasEnc2);
-	Matrix* A1 = apply(relu, z1);
 
-	Matrix* mu = dot(net->hiddenWeightsMu, A1);
-	Matrix* z2 = add(mu,net->hiddenBiasMu);
-	Matrix* A2 = apply(relu, z2);
+	Matrix* z0 = add(dot(net->hiddenWeightsEnc, mymat, 0),net->hiddenBiasEnc, 1);
+	Matrix* A0 = apply(relu, z0, 0);
+
+	Matrix* z1 = add(dot(net->hiddenWeightsEnc2, A0, 0),net->hiddenBiasEnc2, 1);
+	Matrix* A1 = apply(relu, z1, 0);
+
+	Matrix* z2 = add(dot(net->hiddenWeightsMu, A1, 0),net->hiddenBiasMu, 1);
+	Matrix* A2 = apply(relu, z2, 0);
 
 	// Decode
-	Matrix* hiddenDecIn = dot(net->hiddenWeightsDec, A2);
-	Matrix* z3 = add(hiddenDecIn, net->hiddenBiasDec);
-	Matrix* A3 = apply(relu, z3);
+	Matrix* z3 = add(dot(net->hiddenWeightsDec, A2, 0), net->hiddenBiasDec, 1);
+	Matrix* A3 = apply(relu, z3, 0);
 
-	Matrix* hiddenDec2In = dot(net->hiddenWeightsDec2, A3);
-	Matrix* z4 = add(hiddenDec2In, net->hiddenBiasDec2);
-	Matrix* A4 = apply(relu, z4);
+	Matrix* z4 = add(dot(net->hiddenWeightsDec2, A3, 0), net->hiddenBiasDec2, 1);
+	Matrix* A4 = apply(relu, z4, 0);
 
-	Matrix* final_inputs = dot(net->outputWeights, A4);
-	Matrix* z5 = add(final_inputs,net->outputBias);
-	Matrix* A5 = apply(relu, z5);
+	Matrix* z5 = add(dot(net->outputWeights, A4, 0),net->outputBias, 1);
+	Matrix* A5 = apply(relu, z5, 0);
 
-	//matrix_print(A5);
-	//undo until here
-	// //28x28 reconstructed image
+	//28x28 reconstructed image
 	Matrix* recon = matrix_create(784,1);
 
 	for (int j=0; j<784; j++) {
@@ -437,15 +429,9 @@ Img* network_predict(NeuralNetwork* net, Img* input_data, int batch_size) {
 	matrix_free(z3);
 	matrix_free(z4);
 	matrix_free(z5);
-	matrix_free(hiddenEncIn);
-	matrix_free(hiddenEnc2In);
 	matrix_free(A0);
-	matrix_free(mu);
 	matrix_free(A1);
-	matrix_free(hiddenDecIn);
-	matrix_free(hiddenDec2In);
 	matrix_free(A2);
-	matrix_free(final_inputs);
 	matrix_free(A3);
 	matrix_free(A4);
 	matrix_free(A5);
