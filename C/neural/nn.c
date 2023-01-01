@@ -14,11 +14,6 @@
 
 #define MAXCHAR 1000
 
-
-// 1) Maybe add seperate layer struct
-// 2) Allow batch image input as X (784xm) (m=100)
-// 3) Add another layer
-// 4) Use better descent function
 // 784, 512, 256, 128, 256, 512, 784
 NeuralNetwork* aeCreate(int latentDim, double lr, int batchSize) {
 	NeuralNetwork* net = malloc(sizeof(NeuralNetwork));
@@ -121,13 +116,13 @@ double network_train(NeuralNetwork* net, Matrix* X, int batch_size, Matrix** vds
 	Matrix* A2 = apply(relu, z2, 0);
 
 	// Decode
-	Matrix* z3 = add(dot(net->hiddenWeightsDec, A2, 0), net->hiddenBiasDec, 0);
+	Matrix* z3 = add(dot(net->hiddenWeightsDec, A2, 0), net->hiddenBiasDec, 1);
 	Matrix* A3 = apply(relu, z3, 0);
 
-	Matrix* z4 = add(dot(net->hiddenWeightsDec2, A3, 0), net->hiddenBiasDec2, 0);
+	Matrix* z4 = add(dot(net->hiddenWeightsDec2, A3, 0), net->hiddenBiasDec2, 1);
 	Matrix* A4 = apply(relu, z4, 0);
 
-	Matrix* z5 = add(dot(net->outputWeights, A4, 0),net->outputBias, 0);
+	Matrix* z5 = add(dot(net->outputWeights, A4, 0),net->outputBias, 1);
 	Matrix* A5 = apply(relu, z5, 0);
 
 	// Calc loss y^-y
@@ -139,138 +134,189 @@ double network_train(NeuralNetwork* net, Matrix* X, int batch_size, Matrix** vds
 			dA5 -> entries[i][j] = A5->entries[i][j]-X->entries[i][j];
 		}
 	}
-	// printf("Feed forward done\n");
-	// Backpropogation and parameter update
+
+	/* Backpropogation and parameter update */
 
 	//Output layer
 	Matrix* primed_mat = reluPrime(z5);
-	Matrix* dzn = multiply(dA5, primed_mat, 0); //dz5 (also db3 whilst input is a vector)
+	Matrix* dzn = multiply(dA5, primed_mat, 0); //dz5 (also db5 whilst input is a vector)
 	Matrix* dot_mat = dot(dzn, transpose(A4, 0), 2); //dw5
 	//Update W5
-
-	//Can this be made one line such that when multiple  operations are in one line the memomry is freed 
-	Matrix* newVD = add(scale(0.9,vds[0], 0),scale(0.1,dot_mat, 0), 3);
-	matrix_free(newVD);
-
-	Matrix* added_mat = add(net->outputWeights, scale(-(net->learning_rate), dot_mat, 0), 2);
-	
+	Matrix* tempM = add(scale(0.9,vds[0], 0),scale(0.1,dot_mat, 0), 3);
+	matrix_free(vds[0]);
+	vds[0] = tempM;
+	tempM = add(scale(0.999,sds[0], 0),scale(0.001, sqrm(dot_mat, 0), 1), 3);
+	matrix_free(sds[0]);
+	sds[0] = tempM;	
+	Matrix* added_mat = add(net->outputWeights, scale(-(net->learning_rate), divide(vds[0],sqrtm(addScalar(0.00000001,sds[0],0),1),2), 1), 2); //Update weights with ADAM optimiser
 	matrix_free(net->outputWeights);
 	net->outputWeights = added_mat;
 	//Update b5
-	Matrix* added_matB = add(net->outputBias, scale(-(net->learning_rate), dzn, 0), 2);
+	tempM = add(scale(0.9,vds[6], 0),scale(0.1,dzn, 0), 3);
+	matrix_free(vds[6]);
+	vds[6] = tempM;
+	tempM = add(scale(0.999,sds[6], 0),scale(0.001, sqrm(dzn, 0), 1), 3);
+	matrix_free(sds[6]);
+	sds[6] = tempM;
+	Matrix* added_matB = add(net->outputBias, scale(-(net->learning_rate), divide(vds[6],sqrtm(addScalar(0.00000001,sds[6],0),1),2), 1), 2); //Update bias with ADAM optimiser
+
 	matrix_free(net->outputBias);
 	net->outputBias = added_matB;
-
 	matrix_free(primed_mat);
 	matrix_free(dot_mat);	
-
 	assert(is_valid_double(net-> outputWeights -> entries[0][0]));
-	// printf("Output layer done\n");
+
 	//Decoder2 layer
 	dot_mat = dot(transpose(net->outputWeights, 0), dzn, 1);
 	primed_mat = reluPrime(z4);
 	matrix_free(dzn);
 	dzn = multiply(dot_mat, primed_mat, 0); //dz4
-
 	matrix_free(dot_mat);
-
 	dot_mat = dot(dzn, transpose(A3, 0), 2); //dw4
-	added_mat = add(net->hiddenWeightsDec2, scale(-(net->learning_rate), dot_mat, 0), 2);
-	
+	//Update W4
+	tempM = add(scale(0.9,vds[1], 0),scale(0.1,dot_mat, 0), 3);
+	matrix_free(vds[1]);
+	vds[1] = tempM;
+	tempM = add(scale(0.999,sds[1], 0),scale(0.001, sqrm(dot_mat, 0), 1), 3);
+	matrix_free(sds[1]);
+	sds[1] = tempM;
+	added_mat = add(net->hiddenWeightsDec2, scale(-(net->learning_rate), divide(vds[1],sqrtm(addScalar(0.00000001,sds[1],0),1),2), 1), 2); //Update weights with ADAM optimiser
 	matrix_free(net->hiddenWeightsDec2);
 	net->hiddenWeightsDec2 = added_mat;
-	
-	added_matB = add(net->hiddenBiasDec2, scale(-(net->learning_rate), dzn, 0), 2);
+	//Update b4
+	tempM = add(scale(0.9,vds[7], 0),scale(0.1,dzn, 0), 3);
+	matrix_free(vds[7]);
+	vds[7] = tempM;
+	tempM = add(scale(0.999,sds[7], 0),scale(0.001, sqrm(dzn, 0), 1), 3);
+	matrix_free(sds[7]);
+	sds[7] = tempM;
+	added_matB = add(net->hiddenBiasDec2, scale(-(net->learning_rate), divide(vds[7],sqrtm(addScalar(0.00000001,sds[7],0),1),2), 1), 2); //Update bias with ADAM optimiser
 	matrix_free(net->hiddenBiasDec2);
 	net->hiddenBiasDec2 = added_matB;
-
 	matrix_free(primed_mat);
 	matrix_free(dot_mat);
 
-	// printf("Output layer done\n");
 	//Decoder layer
 	dot_mat = dot(transpose(net->hiddenWeightsDec2, 0), dzn, 1);
 	primed_mat = reluPrime(z3);
 	matrix_free(dzn);
 	dzn = multiply(dot_mat, primed_mat, 0); //dz3
-
 	matrix_free(dot_mat);
-
 	dot_mat = dot(dzn, transpose(A2, 0), 2); //dw3
-	added_mat = add(net->hiddenWeightsDec, scale(-(net->learning_rate), dot_mat, 0), 2);
-	
+	//Update W3
+	tempM = add(scale(0.9,vds[2], 0),scale(0.1,dot_mat, 0), 3);
+	matrix_free(vds[2]);
+	vds[2] = tempM;
+	tempM = add(scale(0.999,sds[2], 0),scale(0.001, sqrm(dot_mat, 0), 1), 3);
+	matrix_free(sds[2]);
+	sds[2] = tempM;
+	added_mat = add(net->hiddenWeightsDec, scale(-(net->learning_rate), divide(vds[2],sqrtm(addScalar(0.00000001,sds[2],0),1),2), 1), 2); //Update weights with ADAM optimiser
 	matrix_free(net->hiddenWeightsDec);
 	net->hiddenWeightsDec = added_mat;
-	
-	added_matB = add(net->hiddenBiasDec, scale(-(net->learning_rate), dzn, 0), 2);
+	//Update b3
+	tempM = add(scale(0.9,vds[8], 0),scale(0.1,dzn, 0), 3);
+	matrix_free(vds[8]);
+	vds[8] = tempM;
+	tempM = add(scale(0.999,sds[8], 0),scale(0.001, sqrm(dzn, 0), 1), 3);
+	matrix_free(sds[8]);
+	sds[8] = tempM;
+	added_matB = add(net->hiddenBiasDec, scale(-(net->learning_rate), divide(vds[8],sqrtm(addScalar(0.00000001,sds[8],0),1),2), 1), 2); //Update bias with ADAM optimiser
 	matrix_free(net->hiddenBiasDec);
 	net->hiddenBiasDec = added_matB;
-
 	matrix_free(primed_mat);
 	matrix_free(dot_mat);
-	// printf("Decoder layer done\n");
+
 	//Latent layer
 	dot_mat = dot(transpose(net->hiddenWeightsDec, 0), dzn, 1);
 	primed_mat = reluPrime(z2);
 	matrix_free(dzn);
 	dzn = multiply(dot_mat, primed_mat, 0); //dz2
-
 	matrix_free(dot_mat);
-
 	dot_mat = dot(dzn, transpose(A1, 0), 2); //dw2
-	added_mat = add(net->hiddenWeightsMu, scale(-(net->learning_rate), dot_mat, 0), 2);
-	
+	//Update W2
+	tempM = add(scale(0.9,vds[3], 0),scale(0.1,dot_mat, 0), 3);
+	matrix_free(vds[3]);
+	vds[3] = tempM;
+	tempM = add(scale(0.999,sds[3], 0),scale(0.001, sqrm(dot_mat, 0), 1), 3);
+	matrix_free(sds[3]);
+	sds[3] = tempM;
+	added_mat = add(net->hiddenWeightsMu, scale(-(net->learning_rate), divide(vds[3],sqrtm(addScalar(0.00000001,sds[3],0),1),2), 1), 2); //Update weights with ADAM optimiser
 	matrix_free(net->hiddenWeightsMu);
 	net->hiddenWeightsMu = added_mat;
-	
-	added_matB = add(net->hiddenBiasMu, scale(-(net->learning_rate), dzn, 0), 2);
+	//Update b2
+	tempM = add(scale(0.9,vds[9], 0),scale(0.1,dzn, 0), 3);
+	matrix_free(vds[9]);
+	vds[9] = tempM;
+	tempM = add(scale(0.999,sds[9], 0),scale(0.001, sqrm(dzn, 0), 1), 3);
+	matrix_free(sds[9]);
+	sds[9] = tempM;
+	added_matB = add(net->hiddenBiasMu, scale(-(net->learning_rate), divide(vds[9],sqrtm(addScalar(0.00000001,sds[9],0),1),2), 1), 2); //Update bias with ADAM optimiser
 	matrix_free(net->hiddenBiasMu);
 	net->hiddenBiasMu = added_matB;
-
 	matrix_free(primed_mat);
 	matrix_free(dot_mat);
-	// printf("Latent layer done\n");
+
 	//Encoding2 layer
 	dot_mat = dot(transpose(net->hiddenWeightsMu, 0), dzn, 1);
 	primed_mat = reluPrime(z1);
 	matrix_free(dzn);
 	dzn = multiply(dot_mat, primed_mat, 0); //dz1
-
 	matrix_free(dot_mat);
-
 	dot_mat = dot(dzn, transpose(A0, 0), 2); //dw1
-	added_mat = add(net->hiddenWeightsEnc2, scale(-(net->learning_rate), dot_mat, 0), 2);
-	
+	//Update W1
+	tempM = add(scale(0.9,vds[4], 0),scale(0.1,dot_mat, 0), 3);
+	matrix_free(vds[4]);
+	vds[4] = tempM;
+	tempM = add(scale(0.999,sds[4], 0),scale(0.001, sqrm(dot_mat, 0), 1), 3);
+	matrix_free(sds[4]);
+	sds[4] = tempM;
+	added_mat = add(net->hiddenWeightsEnc2, scale(-(net->learning_rate), divide(vds[4],sqrtm(addScalar(0.00000001,sds[4],0),1),2), 1), 2); //Update weights with ADAM optimiser
 	matrix_free(net->hiddenWeightsEnc2);
 	net->hiddenWeightsEnc2 = added_mat;
-	
-	added_matB = add(net->hiddenBiasEnc2, scale(-(net->learning_rate), dzn, 0), 2);
+	//Update b1
+	tempM = add(scale(0.9,vds[10], 0),scale(0.1,dzn, 0), 3);
+	matrix_free(vds[10]);
+	vds[10] = tempM;
+	tempM = add(scale(0.999,sds[10], 0),scale(0.001, sqrm(dzn, 0), 1), 3);
+	matrix_free(sds[10]);
+	sds[10] = tempM;
+	added_matB = add(net->hiddenBiasEnc2, scale(-(net->learning_rate), divide(vds[10],sqrtm(addScalar(0.00000001,sds[10],0),1),2), 1), 2); //Update bias with ADAM optimiser
 	matrix_free(net->hiddenBiasEnc2);
 	net->hiddenBiasEnc2 = added_matB;
-
 	matrix_free(primed_mat);
 	matrix_free(dot_mat);
+
 	//Encoding layer
 	dot_mat = dot(transpose(net->hiddenWeightsEnc2, 0), dzn, 1);
 	primed_mat = reluPrime(z0);
 	matrix_free(dzn);
 	dzn = multiply(dot_mat, primed_mat, 0); //dz0
-
 	matrix_free(dot_mat);
-
 	dot_mat = dot(dzn, transpose(X, 0), 2); //dw0
-	added_mat = add(net->hiddenWeightsEnc, scale(-(net->learning_rate), dot_mat, 0), 2);
-	
+	//Update W0
+	tempM = add(scale(0.9,vds[5], 0),scale(0.1,dot_mat, 0), 3);
+	matrix_free(vds[5]);
+	vds[5] = tempM;
+	tempM = add(scale(0.999,sds[5], 0),scale(0.001, sqrm(dot_mat, 0), 1), 3);
+	matrix_free(sds[5]);
+	sds[5] = tempM;
+	added_mat = add(net->hiddenWeightsEnc, scale(-(net->learning_rate), divide(vds[5],sqrtm(addScalar(0.00000001,sds[5],0),1),2), 1), 2); //Update weights with ADAM optimiser
 	matrix_free(net->hiddenWeightsEnc);
 	net->hiddenWeightsEnc = added_mat;
-
-	added_matB = add(net->hiddenBiasEnc, scale(-(net->learning_rate), dzn, 0), 2);
+	//Update b1
+	tempM = add(scale(0.9,vds[11], 0),scale(0.1,dzn, 0), 3);
+	matrix_free(vds[11]);
+	vds[11] = tempM;
+	tempM = add(scale(0.999,sds[11], 0),scale(0.001, sqrm(dzn, 0), 1), 3);
+	matrix_free(sds[11]);
+	sds[11] = tempM;
+	added_matB = add(net->hiddenBiasEnc, scale(-(net->learning_rate), divide(vds[11],sqrtm(addScalar(0.00000001,sds[11],0),1),2), 1), 2); //Update bias with ADAM optimiser
 	matrix_free(net->hiddenBiasEnc);
 	net->hiddenBiasEnc = added_matB;
 
 	matrix_free(primed_mat);
 	matrix_free(dot_mat);
-	// printf("Backprop done\n");
+
 	// Free hidden matrices
 	matrix_free(z0);
 	matrix_free(z1);
@@ -305,6 +351,7 @@ void network_train_batch_imgs(NeuralNetwork* net, Img** imgs, int training_size,
 		}
 	}
 	// 784, 512, 256, 128, 256, 512, 784
+	//vds handle momentum for Adam optimiser
 	Matrix** vds = malloc(12 * sizeof(Matrix*));
 	vds[0] = matrix_create(784, 512);
 	vds[1] = matrix_create(512, 256);
@@ -318,38 +365,38 @@ void network_train_batch_imgs(NeuralNetwork* net, Img** imgs, int training_size,
 	matrix_fill(vds[3], 0.0);
 	matrix_fill(vds[4], 0.0);
 	matrix_fill(vds[5], 0.0);
-	vds[6]= matrix_create(512, batch_size);
-	vds[7] = matrix_create(256, batch_size);
-	vds[8] = matrix_create(latent_dim, batch_size);
-	vds[9]= matrix_create(256, batch_size);
-	vds[10] = matrix_create(512, batch_size);
-	vds[11] = matrix_create(784, batch_size); 
+	vds[11]= matrix_create(512, batch_size);
+	vds[10] = matrix_create(256, batch_size);
+	vds[9] = matrix_create(latent_dim, batch_size);
+	vds[8]= matrix_create(256, batch_size);
+	vds[7] = matrix_create(512, batch_size);
+	vds[6] = matrix_create(784, batch_size); 
 	matrix_fill(vds[6], 0.0);
 	matrix_fill(vds[7], 0.0);
 	matrix_fill(vds[8], 0.0);
 	matrix_fill(vds[9], 0.0);
 	matrix_fill(vds[10], 0.0);
 	matrix_fill(vds[11], 0.0);
-
+	//vds handle RMSprop for Adam optimiser
 	Matrix** sds = malloc(12 * sizeof(Matrix*));
-	sds[0] = matrix_create(512, 784);
-	sds[1] = matrix_create(256, 512);
-	sds[2] = matrix_create(latent_dim, 256);
-	sds[3] = matrix_create(256, latent_dim);
-	sds[4] = matrix_create(512, 256);
-	sds[5] = matrix_create(784, 512);
+	sds[0] = matrix_create(784, 512);
+	sds[1] = matrix_create(512, 256);
+	sds[2] = matrix_create(256, latent_dim);
+	sds[3] = matrix_create(latent_dim, 256);
+	sds[4] = matrix_create(256, 512);
+	sds[5] = matrix_create(512, 784);
 	matrix_fill(sds[0], 0.0);
 	matrix_fill(sds[1], 0.0);
 	matrix_fill(sds[2], 0.0);
 	matrix_fill(sds[3], 0.0);
 	matrix_fill(sds[4], 0.0);
 	matrix_fill(sds[5], 0.0);
-	sds[6]= matrix_create(512, batch_size);
-	sds[7] = matrix_create(256, batch_size);
-	sds[8] = matrix_create(latent_dim, batch_size);
-	sds[9]= matrix_create(256, batch_size);
-	sds[10] = matrix_create(512, batch_size);
-	sds[11] = matrix_create(784, batch_size); 
+	sds[11]= matrix_create(512, batch_size);
+	sds[10] = matrix_create(256, batch_size);
+	sds[9] = matrix_create(latent_dim, batch_size);
+	sds[8]= matrix_create(256, batch_size);
+	sds[7] = matrix_create(512, batch_size);
+	sds[6] = matrix_create(784, batch_size); 
 	matrix_fill(sds[6], 0.0);
 	matrix_fill(sds[7], 0.0);
 	matrix_fill(sds[8], 0.0);
@@ -367,12 +414,15 @@ void network_train_batch_imgs(NeuralNetwork* net, Img** imgs, int training_size,
 		}
 	}
 	free(batches);
+	batches = NULL;
 	for (int i=0; i<12; i++){
-		free(sds[i]);
-		free(vds[i]);
+		matrix_free(sds[i]);
+		matrix_free(vds[i]);
 	}
 	free(sds);
 	free(vds);
+	sds = NULL;
+	vds = NULL;
 }
 
 Img* network_predict(NeuralNetwork* net, Img* input_data, int batch_size) {

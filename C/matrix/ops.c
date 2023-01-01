@@ -1,6 +1,7 @@
 #include "ops.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <math.h>
 
 int check_dimensions(Matrix *m1, Matrix *m2) {
 	if (m1->rows == m2->rows && m1->cols == m2->cols) return 1;
@@ -164,6 +165,32 @@ Matrix* scale(double n, Matrix* m, unsigned short int comp) {
 	for (int i = 0; i < m->rows; i++) {
 		for (int j = 0; j < m->cols; j++) {
 			mat->entries[i][j] *= n;
+		}
+	}
+	if (comp == 1){
+		matrix_free(m);
+	}
+	return mat;
+}
+
+Matrix* sqrm(Matrix* m, unsigned short int comp) {
+	Matrix* mat = matrix_copy(m);
+	for (int i = 0; i < m->rows; i++) {
+		for (int j = 0; j < m->cols; j++) {
+			mat->entries[i][j] = pow(mat->entries[i][j],2);
+		}
+	}
+	if (comp == 1){
+		matrix_free(m);
+	}
+	return mat;
+}
+
+Matrix* sqrtm(Matrix* m, unsigned short int comp) {
+	Matrix* mat = matrix_copy(m);
+	for (int i = 0; i < m->rows; i++) {
+		for (int j = 0; j < m->cols; j++) {
+			mat->entries[i][j] = sqrt(mat->entries[i][j]);
 		}
 	}
 	if (comp == 1){
