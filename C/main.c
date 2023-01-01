@@ -10,10 +10,10 @@
 
 int main() {
 	srand(time(NULL));
-	int batchSize = 2;
+	int batchSize = 1;
 	// TRAINING
 	{
-		int number_imgs = 50000, latent_size = 128, epochs = 1;
+		int number_imgs = 5000, latent_size = 128, epochs = 1;
 		double lr = 0.00005;
 		Img** imgs = csv_to_imgs("data/mnist_train.csv", number_imgs);
 		NeuralNetwork* net = aeCreate(latent_size, lr, batchSize);
