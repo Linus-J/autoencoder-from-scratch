@@ -3,11 +3,11 @@
 
 Original input (28x28):
 
-![Original](https://github.com/Linus-J/autoencoder-from-scratch/blob/main/C/testing_net/originalImages.png?raw=true)
+<img src="https://github.com/Linus-J/autoencoder-from-scratch/blob/main/C/testing_net/originalImages.png" alt="Original" width="300"/>
 
 Decoded output (16x1) ⟶ (28x28):
 
-![Compressed](https://github.com/Linus-J/autoencoder-from-scratch/blob/main/C/testing_net/compressedImages.png?raw=true)
+<img src="https://github.com/Linus-J/autoencoder-from-scratch/blob/main/C/testing_net/compressedImages.png" alt="Compressed" width="300"/>
 
 ### Description
 
