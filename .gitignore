@@ -1,0 +1,19 @@
+# C build artefacts
+*.o
+C/main
+C/valgrind_test
+
+# C runtime outputs
+C/*.pgm
+C/testing_net/
+C/data/
+
+# Python / Cython
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+Cython/build/
+Cython/*.so
+Cython/*.c
+Cython/*.html
