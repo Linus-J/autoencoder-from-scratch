@@ -59,6 +59,7 @@ Matrix* matrix_copy(Matrix* m) {
 
 void matrix_save(Matrix* m, char* file_string) {
 	FILE* file = fopen(file_string, "w");
+	if (!file) { perror(file_string); return; }
 	fprintf(file, "%d\n", m->rows);
 	fprintf(file, "%d\n", m->cols);
 	for (int i = 0; i < m->rows; i++) {
@@ -66,13 +67,13 @@ void matrix_save(Matrix* m, char* file_string) {
 			fprintf(file, "%.6f\n", m->entries[i][j]);
 		}
 	}
-	printf("Successfully saved matrix to %s\n", file_string);
 	fclose(file);
 }
 
 Matrix* matrix_load(char* file_string) {
 	FILE* file = fopen(file_string, "r");
-	char entry[MAXCHAR]; 
+	if (!file) { perror(file_string); return NULL; }
+	char entry[MAXCHAR];
 	fgets(entry, MAXCHAR, file);
 	int rows = atoi(entry);
 	fgets(entry, MAXCHAR, file);
@@ -84,7 +85,6 @@ Matrix* matrix_load(char* file_string) {
 			m->entries[i][j] = strtod(entry, NULL);
 		}
 	}
-	printf("Sucessfully loaded matrix from %s\n", file_string);
 	fclose(file);
 	return m;
 }
@@ -97,15 +97,11 @@ double uniform_distribution(double low, double high) {
 }
 
 void matrix_init(Matrix* m, double n, int k) {
-	// Pulling from a random distribution of 
-	// 0 for sigmoid
-	// 1 for relu
-	r4_nor_setup();
-	// printf("val: %f\n",r4_nor_value());//*sqrt(2/n));
-	// printf("sqrt: %f\n",sqrt(2/n));//*sqrt(2/n));
+	/* He initialisation: N(0,1) * sqrt(2 / fan_in)
+	 * Caller must have invoked r4_nor_setup() first. */
 	for (int i = 0; i < m->rows; i++) {
 		for (int j = 0; j < m->cols; j++) {
-			m->entries[i][j] = r4_nor_value()*sqrt((k+1)/n);
+			m->entries[i][j] = r4_nor_value() * sqrt((k + 1) / n);
 		}
 	}
 }

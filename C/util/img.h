@@ -10,6 +10,6 @@ typedef struct {
 Img** csv_to_imgs(char* file_string, int number_of_imgs);
 void img_print(Img* img);
 void img_save(Img* img);
-void img_save_new(Img **imgs, int n);
+void img_save_new(Img **imgs, int n, const char* filename);
 void img_free(Img *img);
 void imgs_free(Img **imgs, int n);

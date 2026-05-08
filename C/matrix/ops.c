@@ -77,19 +77,21 @@ Matrix* add(Matrix *m1, Matrix *m2, unsigned short int comp) {
 			matrix_free(m2);
 		}
 		return m;
-	} else {
-		if (m1->rows == m2->rows){
-			Matrix *m = matrix_create(m1->rows, m1->cols);
-			for (int i = 0; i < m1->rows; i++) {
-				for (int j = 0; j < m2->cols; j++) {
-					m->entries[i][j] = m1->entries[i][j] + m2->entries[i][0];
-				}
+	} else if (m1->rows == m2->rows && m2->cols == 1) {
+		/* Broadcast: add a column vector m2 to every column of m1 */
+		Matrix *m = matrix_create(m1->rows, m1->cols);
+		for (int i = 0; i < m1->rows; i++) {
+			for (int j = 0; j < m1->cols; j++) {
+				m->entries[i][j] = m1->entries[i][j] + m2->entries[i][0];
 			}
 		}
-		else{
-			printf("Dimension mistmatch add: %dx%d %dx%d\n", m1->rows, m1->cols, m2->rows, m2->cols);
-			exit(1);
-		}
+		if (comp == 1) matrix_free(m1);
+		else if (comp == 2) matrix_free(m2);
+		else if (comp == 3) { matrix_free(m1); matrix_free(m2); }
+		return m;
+	} else {
+		printf("Dimension mismatch add: %dx%d %dx%d\n", m1->rows, m1->cols, m2->rows, m2->cols);
+		exit(1);
 	}
 }
 

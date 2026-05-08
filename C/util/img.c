@@ -10,6 +10,11 @@ Img** csv_to_imgs(char* file_string, int number_of_imgs) {
 	Img** imgs = malloc(number_of_imgs * sizeof(Img*));
 	char row[MAXCHAR];
 	fp = fopen(file_string, "r");
+	if (!fp) {
+		perror(file_string);
+		free(imgs);
+		return NULL;
+	}
 
 	// Read the first line 
 	fgets(row, MAXCHAR, fp);
@@ -60,8 +65,7 @@ void img_save(Img* img) {
 	fprintf(pgmimg, "%d %d\n", width, height); 
 	
 	// Writing the maximum gray value
-	fprintf(pgmimg, "255\n"); 
-	int count = 0;
+	fprintf(pgmimg, "255\n");
 	for (i = 0; i < height; i++) {
 		for (j = 0; j < width; j++) {
 			temp = image[i][j];
@@ -73,25 +77,25 @@ void img_save(Img* img) {
 	fclose(pgmimg);
 }
 
-void img_save_new(Img **imgs, int n) {
+void img_save_new(Img **imgs, int n, const char* filename) {
 	int i = 0, j = 0;
-    int a = 28, b =28*n;
-	float **image = malloc(sizeof(int*)*a);
+	int a = 28, b = 28 * n;
+	float **image = malloc(sizeof(float *) * a);
 
-	for (i = 0; i < a; i++){
-		image[i] = malloc(sizeof(float)*b);
+	for (i = 0; i < a; i++) {
+		image[i] = malloc(sizeof(float) * b);
 	}
 
-	for (int h = 1; h < n+1; h++){	
-		for (i = 0; i < a; i++){	
-			for (j = a*(h-1); j < a*h; j++){
-				image[i][j] = imgs[h-1] -> img_data -> entries[i][j-a*(h-1)];
+	for (int h = 1; h < n + 1; h++) {
+		for (i = 0; i < a; i++) {
+			for (j = a * (h - 1); j < a * h; j++) {
+				image[i][j] = imgs[h - 1]->img_data->entries[i][j - a * (h - 1)];
 			}
 		}
 	}
 	float temp = 0;
 	FILE* pgmimg;
-	pgmimg = fopen("nimages.pgm", "wb");
+	pgmimg = fopen(filename, "wb");
 	// Write Magic Number to the File
 	fprintf(pgmimg, "P2\n"); 
 	
@@ -99,8 +103,7 @@ void img_save_new(Img **imgs, int n) {
 	fprintf(pgmimg, "%d %d\n", b, a); 
 	
 	// Writing the maximum gray value
-	fprintf(pgmimg, "255\n"); 
-	int count = 0;
+	fprintf(pgmimg, "255\n");
 	for (i = 0; i < a; i++) {
 		for (j = 0; j < b; j++) {
 			temp = image[i][j];
