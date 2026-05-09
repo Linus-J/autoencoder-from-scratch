@@ -152,6 +152,42 @@ Matrix* dot(Matrix *m1, Matrix *m2, unsigned short int comp) {
 	return m;
 }
 
+Matrix* dot_NT(Matrix *m1, Matrix *m2, unsigned short comp) {
+	/* result = m1 @ m2^T — uses CblasTrans to avoid allocating a transpose. */
+	if (m1->cols != m2->cols) {
+		printf("Dimension mismatch dot_NT: %dx%d vs %dx%d\n",
+		       m1->rows, m1->cols, m2->rows, m2->cols); exit(1);
+	}
+	Matrix *m = matrix_create(m1->rows, m2->rows);
+	cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans,
+	            m1->rows, m2->rows, m1->cols,
+	            1.0, m1->data, m1->cols,
+	            m2->data, m2->cols,
+	            0.0, m->data, m2->rows);
+	if (comp == 1)      matrix_free(m1);
+	else if (comp == 2) matrix_free(m2);
+	else if (comp == 3) { matrix_free(m1); matrix_free(m2); }
+	return m;
+}
+
+Matrix* dot_TN(Matrix *m1, Matrix *m2, unsigned short comp) {
+	/* result = m1^T @ m2 — uses CblasTrans to avoid allocating a transpose. */
+	if (m1->rows != m2->rows) {
+		printf("Dimension mismatch dot_TN: %dx%d vs %dx%d\n",
+		       m1->rows, m1->cols, m2->rows, m2->cols); exit(1);
+	}
+	Matrix *m = matrix_create(m1->cols, m2->cols);
+	cblas_dgemm(CblasRowMajor, CblasTrans, CblasNoTrans,
+	            m1->cols, m2->cols, m1->rows,
+	            1.0, m1->data, m1->cols,
+	            m2->data, m2->cols,
+	            0.0, m->data, m2->cols);
+	if (comp == 1)      matrix_free(m1);
+	else if (comp == 2) matrix_free(m2);
+	else if (comp == 3) { matrix_free(m1); matrix_free(m2); }
+	return m;
+}
+
 Matrix* scale(double n, Matrix* m, unsigned short int comp) {
 	if (comp == 1) {
 		size_t sz = (size_t)m->rows * m->cols;

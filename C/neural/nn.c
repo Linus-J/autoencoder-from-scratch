@@ -28,8 +28,6 @@ NeuralNetwork* aeCreate(int latentDim, double lr, int batchSize) {
 	net->hiddenEnc2 = AE_HIDDEN2;
 	net->mu         = latentDim;
 
-	r4_nor_setup();  /* Initialise ziggurat RNG once before weight init */
-
 	Matrix* enc1  = matrix_create(AE_HIDDEN1,   AE_INPUT_DIM);
 	Matrix* enc1b = matrix_create(AE_HIDDEN1,   batchSize);
 	Matrix* enc2  = matrix_create(AE_HIDDEN2,   AE_HIDDEN1);
@@ -37,12 +35,13 @@ NeuralNetwork* aeCreate(int latentDim, double lr, int batchSize) {
 	Matrix* fc_mu  = matrix_create(latentDim,   AE_HIDDEN2);
 	Matrix* fc_mub = matrix_create(latentDim,   batchSize);
 
-	matrix_fill(enc1b,  0.0);
-	matrix_fill(enc2b,  0.0);
-	matrix_fill(fc_mub, 0.0);
-	matrix_init(enc1,  AE_INPUT_DIM, 1);
-	matrix_init(enc2,  AE_HIDDEN1,   1);
-	matrix_init(fc_mu, AE_HIDDEN2,   1);
+	/* Kaiming uniform init for weights and biases — matches PyTorch nn.Linear */
+	matrix_init(enc1,   AE_INPUT_DIM);
+	matrix_init(enc1b,  AE_INPUT_DIM);
+	matrix_init(enc2,   AE_HIDDEN1);
+	matrix_init(enc2b,  AE_HIDDEN1);
+	matrix_init(fc_mu,  AE_HIDDEN2);
+	matrix_init(fc_mub, AE_HIDDEN2);
 
 	net->hiddenWeightsEnc  = enc1;
 	net->hiddenWeightsEnc2 = enc2;
@@ -63,12 +62,12 @@ NeuralNetwork* aeCreate(int latentDim, double lr, int batchSize) {
 	Matrix* dec2b  = matrix_create(AE_HIDDEN1,   batchSize);
 	Matrix* out_wb = matrix_create(AE_INPUT_DIM, batchSize);
 
-	matrix_fill(dec1b,  0.0);
-	matrix_fill(dec2b,  0.0);
-	matrix_fill(out_wb, 0.0);
-	matrix_init(dec1,  latentDim,  1);
-	matrix_init(dec2,  AE_HIDDEN2, 1);
-	matrix_init(out_w, AE_HIDDEN1, 1);
+	matrix_init(dec1,   latentDim);
+	matrix_init(dec1b,  latentDim);
+	matrix_init(dec2,   AE_HIDDEN2);
+	matrix_init(dec2b,  AE_HIDDEN2);
+	matrix_init(out_w,  AE_HIDDEN1);
+	matrix_init(out_wb, AE_HIDDEN1);
 
 	net->hiddenWeightsDec  = dec1;
 	net->hiddenWeightsDec2 = dec2;
@@ -154,53 +153,53 @@ double network_train(NeuralNetwork* net, Matrix* X, int batch_size,
 	Matrix* primed = reluPrime(z5);
 	Matrix* dzn    = multiply(dA5, primed, 0);
 	matrix_free(primed);
-	ADAM_UPDATE(vds[0], sds[0], dot(dzn, transpose(A4, 0), 2), net->outputWeights);
+	ADAM_UPDATE(vds[0], sds[0], dot_NT(dzn, A4, 0), net->outputWeights);
 	ADAM_UPDATE(vds[6], sds[6], matrix_copy(dzn), net->outputBias);
 	assert(is_valid_double(net->outputWeights->entries[0][0]));
 
 	/* Decoder layer 2 */
-	Matrix* prev = dot(transpose(net->outputWeights, 0), dzn, 1);
+	Matrix* prev = dot_TN(net->outputWeights, dzn, 0);
 	primed = reluPrime(z4);
 	matrix_free(dzn);
 	dzn = multiply(prev, primed, 0);
 	matrix_free(prev); matrix_free(primed);
-	ADAM_UPDATE(vds[1], sds[1], dot(dzn, transpose(A3, 0), 2), net->hiddenWeightsDec2);
+	ADAM_UPDATE(vds[1], sds[1], dot_NT(dzn, A3, 0), net->hiddenWeightsDec2);
 	ADAM_UPDATE(vds[7], sds[7], matrix_copy(dzn), net->hiddenBiasDec2);
 
 	/* Decoder layer 1 */
-	prev   = dot(transpose(net->hiddenWeightsDec2, 0), dzn, 1);
+	prev   = dot_TN(net->hiddenWeightsDec2, dzn, 0);
 	primed = reluPrime(z3);
 	matrix_free(dzn);
 	dzn = multiply(prev, primed, 0);
 	matrix_free(prev); matrix_free(primed);
-	ADAM_UPDATE(vds[2], sds[2], dot(dzn, transpose(A2, 0), 2), net->hiddenWeightsDec);
+	ADAM_UPDATE(vds[2], sds[2], dot_NT(dzn, A2, 0), net->hiddenWeightsDec);
 	ADAM_UPDATE(vds[8], sds[8], matrix_copy(dzn), net->hiddenBiasDec);
 
 	/* Latent (mu) layer */
-	prev   = dot(transpose(net->hiddenWeightsDec, 0), dzn, 1);
+	prev   = dot_TN(net->hiddenWeightsDec, dzn, 0);
 	primed = reluPrime(z2);
 	matrix_free(dzn);
 	dzn = multiply(prev, primed, 0);
 	matrix_free(prev); matrix_free(primed);
-	ADAM_UPDATE(vds[3], sds[3], dot(dzn, transpose(A1, 0), 2), net->hiddenWeightsMu);
+	ADAM_UPDATE(vds[3], sds[3], dot_NT(dzn, A1, 0), net->hiddenWeightsMu);
 	ADAM_UPDATE(vds[9], sds[9], matrix_copy(dzn), net->hiddenBiasMu);
 
 	/* Encoder layer 2 */
-	prev   = dot(transpose(net->hiddenWeightsMu, 0), dzn, 1);
+	prev   = dot_TN(net->hiddenWeightsMu, dzn, 0);
 	primed = reluPrime(z1);
 	matrix_free(dzn);
 	dzn = multiply(prev, primed, 0);
 	matrix_free(prev); matrix_free(primed);
-	ADAM_UPDATE(vds[4], sds[4], dot(dzn, transpose(A0, 0), 2), net->hiddenWeightsEnc2);
+	ADAM_UPDATE(vds[4], sds[4], dot_NT(dzn, A0, 0), net->hiddenWeightsEnc2);
 	ADAM_UPDATE(vds[10], sds[10], matrix_copy(dzn), net->hiddenBiasEnc2);
 
 	/* Encoder layer 1 */
-	prev   = dot(transpose(net->hiddenWeightsEnc2, 0), dzn, 1);
+	prev   = dot_TN(net->hiddenWeightsEnc2, dzn, 0);
 	primed = reluPrime(z0);
 	matrix_free(dzn);
 	dzn = multiply(prev, primed, 0);
 	matrix_free(prev); matrix_free(primed);
-	ADAM_UPDATE(vds[5], sds[5], dot(dzn, transpose(X, 0), 2), net->hiddenWeightsEnc);
+	ADAM_UPDATE(vds[5], sds[5], dot_NT(dzn, X, 0), net->hiddenWeightsEnc);
 	ADAM_UPDATE(vds[11], sds[11], matrix_copy(dzn), net->hiddenBiasEnc);
 
 	/* ── Free intermediate activations ─────────────────────────────── */

@@ -14,7 +14,7 @@ void matrix_print(Matrix *m);
 Matrix* matrix_copy(Matrix *m);
 void matrix_save(Matrix* m, char* file_string);
 Matrix* matrix_load(char* file_string);
-void matrix_init(Matrix* m, double n, int k);
+void matrix_init(Matrix* m, double fan_in);
 int matrix_argmax(Matrix* m);
 Matrix* matrix_flatten(Matrix* m, int axis);
 Matrix* matrix_unflatten(Matrix* m);

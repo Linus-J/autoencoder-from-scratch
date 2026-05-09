@@ -86,18 +86,16 @@ Matrix* matrix_load(char* file_string) {
 }
 
 double uniform_distribution(double low, double high) {
-	double difference = high - low; // The difference between the two
-	int scale = 10000;
-	int scaled_difference = (int)(difference * scale);
-	return low + (1.0 * (rand() % scaled_difference) / scale);
+	return low + (high - low) * (rand() / (double)RAND_MAX);
 }
 
-void matrix_init(Matrix* m, double n, int k) {
-	/* He initialisation: N(0,1) * sqrt(2 / fan_in)
-	 * Caller must have invoked r4_nor_setup() first. */
+void matrix_init(Matrix* m, double fan_in) {
+	/* Kaiming uniform — matches PyTorch nn.Linear default:
+	 *   kaiming_uniform_(a=sqrt(5))  =>  Uniform(-1/sqrt(fan_in), 1/sqrt(fan_in)) */
+	double bound = 1.0 / sqrt(fan_in);
 	for (int i = 0; i < m->rows; i++) {
 		for (int j = 0; j < m->cols; j++) {
-			m->entries[i][j] = r4_nor_value() * sqrt((k + 1) / n);
+			m->entries[i][j] = uniform_distribution(-bound, bound);
 		}
 	}
 }

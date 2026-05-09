@@ -7,6 +7,10 @@ Matrix* divide(Matrix *m1, Matrix *m2, unsigned short int comp);
 Matrix* add(Matrix* m1, Matrix* m2, unsigned short int comp);
 Matrix* subtract(Matrix* m1, Matrix* m2, unsigned short int comp);
 Matrix* dot(Matrix* m1, Matrix* m2, unsigned short int comp);
+/* dot_NT: result = m1 @ m2^T  (avoids allocating a transpose matrix) */
+Matrix* dot_NT(Matrix* m1, Matrix* m2, unsigned short int comp);
+/* dot_TN: result = m1^T @ m2  (avoids allocating a transpose matrix) */
+Matrix* dot_TN(Matrix* m1, Matrix* m2, unsigned short int comp);
 Matrix* apply(double (*func)(double), Matrix* m, unsigned short int comp);
 Matrix* scale(double n, Matrix* m, unsigned short int comp);
 Matrix* addScalar(double n, Matrix* m, unsigned short int comp);
