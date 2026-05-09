@@ -12,9 +12,9 @@ All activations are ReLU. The bottleneck compresses each 28×28 image down to 16
 
 ## Results
 
-| Implementation   | Wall-clock | Avg MSE loss |
+| Implementation   | Wall-clock | Avg MSE loss (1 epoch)|
 |------------------|-----------|-------------|
-| C (from scratch) | ~12–15 s  | ~0.07       |
+| C (from scratch) | ~10–13 s  | ~0.06       |
 | Python / PyTorch | ~13–16 s  | ~0.06       |
 | Cython / PyTorch | ~9–15 s   | ~0.06       |
 
