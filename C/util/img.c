@@ -30,7 +30,7 @@ Img** csv_to_imgs(char* file_string, int number_of_imgs) {
 			if (j == 0) {
 				imgs[i]->label = atoi(token);
 			} else {
-				imgs[i]->img_data->entries[(j-1) / 28][(j-1) % 28] = atoi(token) / 256.0;
+				imgs[i]->img_data->entries[(j-1) / 28][(j-1) % 28] = atoi(token) / 255.0;
 			}
 			token = strtok(NULL, ",");
 			j++;

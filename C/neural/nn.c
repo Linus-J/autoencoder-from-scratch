@@ -84,36 +84,41 @@ static bool is_valid_double(double x) {
 }
 
 /*
- * ADAM_UPDATE — one Adam parameter update, fully in-place.
+ * adam_step — one Adam parameter update, fully in-place.
  *
- * vd/sd   first/second moment accumulators (updated in place)
- * grad    gradient matrix (consumed: freed at end)
- * param   network weight/bias (updated in place)
+ * Uses PyTorch-compatible bias correction:
+ *   lr_t = lr * sqrt(1 - β2^t) / (1 - β1^t)
+ *   param -= lr_t * m / (sqrt(v) + ε)
  *
- * All arithmetic is done in a single flat loop over the data array —
- * no temporary matrix allocations, no malloc/free overhead.
+ * Parallelised when n > 2048 (large weight matrices only).
  */
+static void adam_step(double * restrict vd, double * restrict sd,
+                      const double * restrict grad, double * restrict param,
+                      size_t n, double lr, int t)
+{
+	double bc1  = 1.0 - pow(ADAM_BETA1, t);
+	double bc2  = 1.0 - pow(ADAM_BETA2, t);
+	double lr_t = lr * sqrt(bc2) / bc1;
+#pragma omp parallel for if(n > 2048) schedule(static)
+	for (size_t k = 0; k < n; k++) {
+		double g = grad[k];
+		vd[k] = ADAM_BETA1 * vd[k] + (1.0 - ADAM_BETA1) * g;
+		sd[k] = ADAM_BETA2 * sd[k] + (1.0 - ADAM_BETA2) * g * g;
+		param[k] -= lr_t * vd[k] / (sqrt(sd[k]) + ADAM_EPS);
+	}
+}
+
 #define ADAM_UPDATE(vd, sd, grad, param)                                       \
 	do {                                                                       \
 		Matrix* _g = (grad);                                                   \
-		size_t _n = (size_t)(vd)->rows * (vd)->cols;                           \
-		double* _vd = (vd)->data;                                              \
-		double* _sd = (sd)->data;                                              \
-		double* _p  = (param)->data;                                           \
-		double* _gd = _g->data;                                                \
-		double _lr  = net->learning_rate;                                      \
-		for (size_t _k = 0; _k < _n; _k++) {                                  \
-			double g  = _gd[_k];                                               \
-			_vd[_k] = ADAM_BETA1 * _vd[_k] + (1.0 - ADAM_BETA1) * g;         \
-			_sd[_k] = ADAM_BETA2 * _sd[_k] + (1.0 - ADAM_BETA2) * g * g;     \
-			_p[_k] -= _lr * _vd[_k] / (sqrt(_sd[_k]) + ADAM_EPS);            \
-		}                                                                      \
+		adam_step((vd)->data, (sd)->data, _g->data, (param)->data,             \
+		          (size_t)(vd)->rows * (vd)->cols, net->learning_rate, _step); \
 		matrix_free(_g);                                                       \
 	} while (0)
 
 
 double network_train(NeuralNetwork* net, Matrix* X, int batch_size,
-                     Matrix** vds, Matrix** sds) {
+                     Matrix** vds, Matrix** sds, int _step) {
 	/* ── Forward pass ─────────────────────────────────────────────────── */
 	/* Encoder */
 	Matrix* z0 = add(dot(net->hiddenWeightsEnc,  X,  0), net->hiddenBiasEnc,  1);
@@ -255,7 +260,8 @@ void network_train_batch_imgs(NeuralNetwork* net, Img** imgs, int training_size,
 		clock_gettime(CLOCK_MONOTONIC, &ep_start);
 		double epoch_loss = 0.0;
 		for (int i = 0; i < n_batches; i++) {
-			epoch_loss += network_train(net, batches[i], batch_size, vds, sds);
+			epoch_loss += network_train(net, batches[i], batch_size, vds, sds,
+			                           k * n_batches + i + 1);
 		}
 		clock_gettime(CLOCK_MONOTONIC, &ep_end);
 		double ep_secs = (ep_end.tv_sec  - ep_start.tv_sec)

@@ -1,7 +1,7 @@
 C_SOURCES = $(wildcard matrix/*.c neural/*.c util/*.c) main.c
 HEADERS = $(wildcard matrix/*.h neural/*.h util/*.h *.h)
 OBJ = ${C_SOURCES:.c=.o}
-CFLAGS = -O3 -march=native -Wall -Wextra -Wpedantic
+CFLAGS = -O3 -march=native -fopenmp -Wall -Wextra -Wpedantic -I/usr/include/openblas
 
 MAIN = main
 CC = /usr/bin/gcc

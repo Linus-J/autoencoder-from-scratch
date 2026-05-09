@@ -27,6 +27,13 @@
 #define AE_NUM_TEST_IMGS    10  /* Images loaded for inference/visualisation */
 #define AE_NUM_VIS_IMGS      5  /* Reconstructed images saved to disk        */
 
+/* ── Parallelism ───────────────────────────────────────────────────────── */
+
+/* Number of OpenMP threads used for Adam weight updates.
+ * Scales best at ~8 threads for batch_size=1; reduce if you see slowdowns.
+ * Override at runtime with the OMP_NUM_THREADS environment variable. */
+#define AE_OMP_THREADS   8
+
 /* ── Adam optimiser parameters ─────────────────────────────────────────── */
 
 #define ADAM_BETA1   0.9    /* First-moment (momentum) decay rate            */

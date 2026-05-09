@@ -1,6 +1,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <omp.h>
 #include "config.h"
 #include "util/img.h"
 #include "neural/nn.h"
@@ -8,6 +9,7 @@
 #include "matrix/ops.h"
 
 int main(void) {
+	omp_set_num_threads(AE_OMP_THREADS);
 	srand((unsigned int)time(NULL));
 
 	/* ── TRAINING ──────────────────────────────────────────────────────── */
