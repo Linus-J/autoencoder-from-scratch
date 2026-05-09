@@ -136,16 +136,19 @@ double network_train(NeuralNetwork* net, Matrix* X, int batch_size,
 	Matrix* A5 = apply(relu, z5, 0);
 
 	/* ── MSE loss and output gradient ─────────────────────────────────── */
+	/* Match PyTorch nn.MSELoss(reduction='mean'): loss = mean(diff²)
+	 * Gradient: d_loss/d_output_i = 2*diff_i / n                        */
 	double loss = 0.0;
+	int n = X->rows * X->cols;   /* total elements = AE_INPUT_DIM * batch_size */
 	Matrix* dA5 = matrix_create(AE_INPUT_DIM, batch_size);
 	for (int i = 0; i < X->rows; i++) {
 		for (int j = 0; j < X->cols; j++) {
 			double diff = A5->entries[i][j] - X->entries[i][j];
-			loss += 0.5 * diff * diff;
-			dA5->entries[i][j] = diff;
+			loss += diff * diff;
+			dA5->entries[i][j] = 2.0 * diff / n;
 		}
 	}
-
+	loss /= n;
 	/* ── Backpropagation (output → encoder) ──────────────────────────── */
 	/* Output layer */
 	Matrix* primed = reluPrime(z5);
