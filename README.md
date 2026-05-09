@@ -62,8 +62,12 @@ pip install -r requirements.txt
 ### All three implementations + generate plots
 ```bash
 source .venv/bin/activate
-python plot.py          # outputs plots/results.png
+python plot.py                  # 1 epoch (quick sanity check)
+python plot.py --epochs 100     # 100 epochs (better reconstructions, ~70 min)
 ```
+
+Outputs `plots/results.png` — convergence curves, wall-clock bar chart, and
+side-by-side reconstructions from all three implementations.
 
 ### Timing comparison only (no plots)
 ```bash
@@ -73,7 +77,8 @@ bash compare.sh
 ### Individual implementations
 ```bash
 # C
-cd C && make && ./main
+cd C && make && ./main                      # 1 epoch (AE_EPOCHS in config.h)
+cd C && make && ./main --epochs 100         # override at runtime
 
 # Python / PyTorch
 python Python/autoencoder.py

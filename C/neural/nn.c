@@ -261,6 +261,7 @@ void network_train_batch_imgs(NeuralNetwork* net, Img** imgs, int training_size,
 	FILE *lf = fopen("losses_c.csv", "w");
 	if (lf) fprintf(lf, "batch,loss\n");
 
+#define BAR_WIDTH 30
 	struct timespec ep_start, ep_end;
 	for (int k = 0; k < epochs; k++) {
 		clock_gettime(CLOCK_MONOTONIC, &ep_start);
@@ -270,10 +271,26 @@ void network_train_batch_imgs(NeuralNetwork* net, Img** imgs, int training_size,
 			                                  k * n_batches + i + 1);
 			epoch_loss += batch_loss;
 			if (lf) fprintf(lf, "%d,%.8f\n", k * n_batches + i, batch_loss);
+
+			/* ── progress bar ────────────────────────────────────────── */
+			int done  = (i + 1) * BAR_WIDTH / n_batches;
+			struct timespec now;
+			clock_gettime(CLOCK_MONOTONIC, &now);
+			double secs = (now.tv_sec  - ep_start.tv_sec)
+			            + (now.tv_nsec - ep_start.tv_nsec) * 1e-9;
+			fprintf(stderr,
+			        "\rEpoch %d/%d  [%-*.*s]  %d/%d  loss: %.5f  %.1fs",
+			        k + 1, epochs,
+			        BAR_WIDTH, done, "##############################",
+			        i + 1, n_batches,
+			        epoch_loss / (i + 1),
+			        secs);
 		}
 		clock_gettime(CLOCK_MONOTONIC, &ep_end);
 		double ep_secs = (ep_end.tv_sec  - ep_start.tv_sec)
 		               + (ep_end.tv_nsec - ep_start.tv_nsec) * 1e-9;
+		/* Overwrite the progress bar with the final epoch summary */
+		fprintf(stderr, "\r%-78s\r", "");
 		printf("Epoch %d/%d — avg loss: %.6f — time: %.2f s\n",
 		       k + 1, epochs, epoch_loss / n_batches, ep_secs);
 	}

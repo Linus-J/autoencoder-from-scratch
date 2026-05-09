@@ -64,8 +64,12 @@ class AutoEncoder(nn.Module):
         return self.decoder(self.encoder(x))
 
 # ── Training ──────────────────────────────────────────────────────────────────
-def run(int num_train=NUM_TRAIN_IMGS):
-    """Train the autoencoder and return wall-clock training time in seconds."""
+def run(int num_train=NUM_TRAIN_IMGS, int num_epochs=EPOCHS, test_x=None):
+    """Train the autoencoder; return (wall_time, losses, reconstructions).
+
+    test_x: optional (N, 784) float32 tensor — if given, reconstructions are
+            returned as an (N, 28, 28) float32 numpy array.
+    """
     cdef int i, epoch, n_batches
     cdef double epoch_loss, avg, elapsed, wall_start, l
 
@@ -81,7 +85,7 @@ def run(int num_train=NUM_TRAIN_IMGS):
     wall_start = time.perf_counter()
 
     losses = []
-    for epoch in range(EPOCHS):
+    for epoch in range(num_epochs):
         epoch_loss = 0.0
         t0 = time.perf_counter()
         for i in range(0, num_train, BATCH_SIZE):
@@ -96,6 +100,12 @@ def run(int num_train=NUM_TRAIN_IMGS):
 
         avg     = epoch_loss / n_batches
         elapsed = time.perf_counter() - t0
-        print(f"Epoch {epoch+1}/{EPOCHS} — avg loss: {avg:.6f} — time: {elapsed:.2f} s")
+        print(f"Epoch {epoch+1}/{num_epochs} — avg loss: {avg:.6f} — time: {elapsed:.2f} s")
 
-    return time.perf_counter() - wall_start, losses
+    recons = None
+    if test_x is not None:
+        model.eval()
+        with torch.no_grad():
+            recons = model(test_x.to(DEVICE)).cpu().numpy().reshape(-1, 28, 28)
+
+    return time.perf_counter() - wall_start, losses, recons

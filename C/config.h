@@ -24,8 +24,8 @@
 #define AE_EPOCHS            1  /* Number of full passes over the dataset    */
 #define AE_BATCH_SIZE        1  /* Mini-batch size (keep at 1 to match Python)*/
 #define AE_NUM_TRAIN_IMGS 5000  /* Images drawn from the training CSV        */
-#define AE_NUM_TEST_IMGS    10  /* Images loaded for inference/visualisation */
-#define AE_NUM_VIS_IMGS      5  /* Reconstructed images saved to disk        */
+#define AE_NUM_TEST_IMGS    25  /* Images loaded for inference/visualisation */
+#define AE_NUM_VIS_IMGS      5  /* Default reconstructed images saved to disk */
 
 /* ── Parallelism ───────────────────────────────────────────────────────── */
 
@@ -44,4 +44,4 @@
 
 #define TRAIN_CSV  "data/mnist_train.csv"
 #define TEST_CSV   "data/mnist_test.csv"
-#define SAVE_DIR   "testing_net"
+#define SAVE_DIR   "saved_model"

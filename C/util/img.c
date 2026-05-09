@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #define MAXCHAR 10000
 
@@ -107,8 +108,8 @@ void img_save_new(Img **imgs, int n, const char* filename) {
 	for (i = 0; i < a; i++) {
 		for (j = 0; j < b; j++) {
 			temp = image[i][j];
-			// Writing the gray values in the 2D array to the file
-			fprintf(pgmimg, "%d ", (int)(temp*255));
+			/* Clamp to [0,255] — network output (ReLU) can exceed 1.0 */
+			fprintf(pgmimg, "%d ", (int)(fminf(1.0f, fmaxf(0.0f, temp)) * 255));
 		}
 		fprintf(pgmimg, "\n");
 	}
