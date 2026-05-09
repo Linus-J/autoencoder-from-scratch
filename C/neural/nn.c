@@ -258,13 +258,18 @@ void network_train_batch_imgs(NeuralNetwork* net, Img** imgs, int training_size,
 		sds[i] = matrix_copy(vds[i]);
 	}
 
+	FILE *lf = fopen("losses_c.csv", "w");
+	if (lf) fprintf(lf, "batch,loss\n");
+
 	struct timespec ep_start, ep_end;
 	for (int k = 0; k < epochs; k++) {
 		clock_gettime(CLOCK_MONOTONIC, &ep_start);
 		double epoch_loss = 0.0;
 		for (int i = 0; i < n_batches; i++) {
-			epoch_loss += network_train(net, batches[i], batch_size, vds, sds,
-			                           k * n_batches + i + 1);
+			double batch_loss = network_train(net, batches[i], batch_size, vds, sds,
+			                                  k * n_batches + i + 1);
+			epoch_loss += batch_loss;
+			if (lf) fprintf(lf, "%d,%.8f\n", k * n_batches + i, batch_loss);
 		}
 		clock_gettime(CLOCK_MONOTONIC, &ep_end);
 		double ep_secs = (ep_end.tv_sec  - ep_start.tv_sec)
@@ -272,6 +277,7 @@ void network_train_batch_imgs(NeuralNetwork* net, Img** imgs, int training_size,
 		printf("Epoch %d/%d — avg loss: %.6f — time: %.2f s\n",
 		       k + 1, epochs, epoch_loss / n_batches, ep_secs);
 	}
+	if (lf) fclose(lf);
 
 	/* Free batch data after all epochs complete */
 	for (int i = 0; i < n_batches; i++) {

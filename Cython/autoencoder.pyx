@@ -67,7 +67,7 @@ class AutoEncoder(nn.Module):
 def run(int num_train=NUM_TRAIN_IMGS):
     """Train the autoencoder and return wall-clock training time in seconds."""
     cdef int i, epoch, n_batches
-    cdef double epoch_loss, avg, elapsed, wall_start
+    cdef double epoch_loss, avg, elapsed, wall_start, l
 
     data      = load_mnist_csv(TRAIN_CSV, num_train)
     n_batches = num_train // BATCH_SIZE
@@ -80,6 +80,7 @@ def run(int num_train=NUM_TRAIN_IMGS):
     model.train()
     wall_start = time.perf_counter()
 
+    losses = []
     for epoch in range(EPOCHS):
         epoch_loss = 0.0
         t0 = time.perf_counter()
@@ -89,10 +90,12 @@ def run(int num_train=NUM_TRAIN_IMGS):
             loss = criterion(model(x), x)
             loss.backward()
             optimizer.step()
-            epoch_loss += loss.item()
+            l = loss.item()
+            epoch_loss += l
+            losses.append(l)
 
         avg     = epoch_loss / n_batches
         elapsed = time.perf_counter() - t0
         print(f"Epoch {epoch+1}/{EPOCHS} — avg loss: {avg:.6f} — time: {elapsed:.2f} s")
 
-    return time.perf_counter() - wall_start
+    return time.perf_counter() - wall_start, losses

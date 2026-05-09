@@ -1,34 +1,91 @@
-## Autoencoder implementation
-### Example output from the autoencoder with Adam optimiser written in C:
+# Autoencoder from Scratch
 
-Original input (28x28):
+A dense autoencoder trained on MNIST, implemented in three languages: plain **C**, **Python/PyTorch**, and **Cython/PyTorch**. All share the same architecture, hyperparameters, and Adam optimiser so the comparison is fair.
 
-<img src="https://github.com/Linus-J/autoencoder-from-scratch/blob/main/C/testing_net/originalImages.png" alt="Original" width="300"/>
+## Architecture
 
-Decoded output (16x1) ⟶ (28x28):
+```
+784 → 512 → 128 → 16 → 128 → 512 → 784
+```
 
-<img src="https://github.com/Linus-J/autoencoder-from-scratch/blob/main/C/testing_net/compressedImages.png" alt="Compressed" width="300"/>
+All activations are ReLU. The bottleneck compresses each 28×28 image down to 16 values. Loss is pixel-wise mean-squared error (matches `nn.MSELoss(reduction='mean')`).
 
-### Description
+## Results
 
-This project implements an autoencoder (AE) trained on the MNIST dataset. The AE uses no convolutional layers and the encoder and decoder parts are comprised of 2 dense layers each. A variant of the Adam optimiser is used in each implementation.
+| Implementation   | Wall-clock | Avg MSE loss |
+|------------------|-----------|-------------|
+| C (from scratch) | ~12–15 s  | ~0.07       |
+| Python / PyTorch | ~13–16 s  | ~0.06       |
+| Cython / PyTorch | ~9–15 s   | ~0.06       |
 
-The source code is written in Python using Pytorch/Numpy, Cython and C and execution times during training will soon be compared.
+_Benchmarked on 5 000 training images, 1 epoch, batch size 1._  
+_C uses OpenBLAS (`cblas_dgemm`) for matrix multiply and OpenMP (8 threads) for Adam weight updates._
 
-### References: 
-- C autoencoder fork from C based MNIST classifier [here](https://github.com/markkraay/mnist-from-scratch)
-- Python autoencoder referenced from [here](https://medium.com/pytorch/implementing-an-autoencoder-in-pytorch-19baa22647d1)
-- [Basic Neural Network in C](https://github.com/markkraay/mnist-from-scratch "Basic Neural Network in C")
-- [Normal distribution generator for C](https://people.sc.fsu.edu/~jburkardt/cpp_src/ziggurat_inline/ziggurat_inline.html "Normal distribution generator for C")
-- [PyTorch AE](https://medium.com/pytorch/implementing-an-autoencoder-in-pytorch-19baa22647d1 "PyTorch AE")
-- [DEMON Adam optimiser](https://github.com/JRC1995/DemonRangerOptimizer "DEMON Adam optimiser")
+![Convergence, wall-clock time, and reconstructions](plots/results.png)
 
-### Current progress:
-- AE implemented using Adam optimiser in C
-- Implemented batch training and composite matrix operations in C
-- AE implemented in PyTorch and Cython with DEMON Adam optimiser
+## Implementations
 
-### Future aims: 
-- Add DEMON to the Adam optimiser to C source code.
-- Implement a disentangled VAE in all languages.
-- Test and compare execution times.
+### C (`C/`)
+
+Written entirely from scratch — no ML framework.
+
+- **Matrix layout**: flat row-major `double *data` block for cache locality; `double **entries` row-pointer array for ergonomic indexing.
+- **BLAS**: OpenBLAS `cblas_dgemm` replaces the hand-rolled matrix multiply.
+- **Adam**: bias-corrected (`lr_t = lr × √(1−β₂ᵗ) / (1−β₁ᵗ)`) with a single in-place flat loop — no temporary matrix allocations during parameter updates.
+- **Parallelism**: OpenMP `#pragma omp parallel for` on weight-matrix Adam steps (threshold: >2048 elements); thread count set in `config.h`.
+- **Weight init**: Ziggurat algorithm for normal-distributed values.
+
+All hyperparameters live in [`C/config.h`](C/config.h) — no other source file needs to be touched to change architecture or learning rate.
+
+### Python (`Python/autoencoder.py`)
+
+PyTorch reference implementation. Serves as the correctness and speed baseline.
+
+### Cython (`Cython/autoencoder.pyx`)
+
+Same PyTorch model as Python with Cython type annotations on loop variables and scalar accumulators to reduce interpreter overhead in the training loop. PyTorch tensor ops dominate at runtime so the gain is modest.
+
+## Setup
+
+```bash
+# 1. Download MNIST data (CSV format)
+bash C/download.sh
+
+# 2. Create virtual environment and install Python dependencies
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+## Running
+
+### All three implementations + generate plots
+```bash
+source .venv/bin/activate
+python plot.py          # outputs plots/results.png
+```
+
+### Timing comparison only (no plots)
+```bash
+bash compare.sh
+```
+
+### Individual implementations
+```bash
+# C
+cd C && make && ./main
+
+# Python / PyTorch
+python Python/autoencoder.py
+
+# Cython / PyTorch
+cd Cython
+python setup.py build_ext --inplace
+python run_cython.py
+```
+
+## References
+
+- C implementation forked from [mnist-from-scratch](https://github.com/markkraay/mnist-from-scratch) by Mark Kraay
+- Normal distribution generator: [Ziggurat inline C](https://people.sc.fsu.edu/~jburkardt/cpp_src/ziggurat_inline/ziggurat_inline.html)
+- PyTorch autoencoder: [Implementing an Autoencoder in PyTorch](https://medium.com/pytorch/implementing-an-autoencoder-in-pytorch-19baa22647d1)

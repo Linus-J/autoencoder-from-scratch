@@ -47,8 +47,8 @@ int main(void) {
 	Img **test_imgs = csv_to_imgs(TEST_CSV, AE_NUM_TEST_IMGS);
 	NeuralNetwork *loaded = network_load(SAVE_DIR);
 
-	/* Save a strip of original test images */
-	img_save_new(test_imgs, AE_NUM_TEST_IMGS, "originalImages.pgm");
+	/* Save a strip of original test images (first AE_NUM_VIS_IMGS to match reconstructions) */
+	img_save_new(test_imgs, AE_NUM_VIS_IMGS, "originalImages.pgm");
 
 	/* Run encoder→decoder and save reconstructions */
 	Img **out_imgs = malloc(AE_NUM_VIS_IMGS * sizeof(Img *));

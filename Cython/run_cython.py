@@ -19,7 +19,7 @@ print(f"Learning rate: {autoencoder.LEARNING_RATE}")
 print(f"Training imgs: {autoencoder.NUM_TRAIN_IMGS}")
 print()
 
-t = autoencoder.run()
+t, _ = autoencoder.run()
 
 print()
 print("=== Training complete ===")

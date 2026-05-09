@@ -5,6 +5,7 @@ C/valgrind_test
 
 # C runtime outputs
 C/*.pgm
+C/losses_c.csv
 C/testing_net/
 C/data/
 

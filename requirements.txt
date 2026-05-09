@@ -1,3 +1,5 @@
 torch
 numpy
 cython
+matplotlib
+pillow
