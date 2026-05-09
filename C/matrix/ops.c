@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <cblas.h>
 
 int check_dimensions(Matrix *m1, Matrix *m2) {
 	if (m1->rows == m2->rows && m1->cols == m2->cols) return 1;
@@ -121,96 +122,81 @@ Matrix* subtract(Matrix *m1, Matrix *m2, unsigned short int comp) {
 }
 
 Matrix* apply(double (*func)(double), Matrix* m, unsigned short int comp) {
+	if (comp == 1) {
+		size_t n = (size_t)m->rows * m->cols;
+		for (size_t k = 0; k < n; k++) m->data[k] = func(m->data[k]);
+		return m;
+	}
 	Matrix *mat = matrix_copy(m);
-	for (int i = 0; i < m->rows; i++) {
-		for (int j = 0; j < m->cols; j++) {
-			mat->entries[i][j] = (*func)(m->entries[i][j]);
-		}
-	}
-	if (comp == 1){
-		matrix_free(m);
-	}
+	size_t n = (size_t)m->rows * m->cols;
+	for (size_t k = 0; k < n; k++) mat->data[k] = func(m->data[k]);
 	return mat;
 }
 
 Matrix* dot(Matrix *m1, Matrix *m2, unsigned short int comp) {
-	if (m1->cols == m2->rows) {
-		Matrix *m = matrix_create(m1->rows, m2->cols);
-		for (int i = 0; i < m1->rows; i++) {
-			for (int j = 0; j < m2->cols; j++) {
-				double sum = 0;
-				for (int k = 0; k < m2->rows; k++) {
-					sum += m1->entries[i][k] * m2->entries[k][j];
-				}
-				m->entries[i][j] = sum;
-			}
-		}
-		if (comp == 1){
-			matrix_free(m1);
-		}
-		else if (comp == 2){
-			matrix_free(m2);
-		}
-		else if (comp == 3){
-			matrix_free(m1);
-			matrix_free(m2);
-		}
-		return m;
-	} else {
+	if (m1->cols != m2->rows) {
 		printf("Dimension mistmatch dot: %dx%d %dx%d\n", m1->rows, m1->cols, m2->rows, m2->cols);
 		exit(1);
 	}
+	Matrix *m = matrix_create(m1->rows, m2->cols);
+	/* Use CBLAS dgemm: m = 1.0 * m1 * m2 + 0.0 * m
+	 * All matrices are row-major (CblasRowMajor). */
+	cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
+	            m1->rows, m2->cols, m1->cols,
+	            1.0, m1->data, m1->cols,
+	            m2->data, m2->cols,
+	            0.0, m->data, m->cols);
+	if (comp == 1)       matrix_free(m1);
+	else if (comp == 2)  matrix_free(m2);
+	else if (comp == 3) { matrix_free(m1); matrix_free(m2); }
+	return m;
 }
 
 Matrix* scale(double n, Matrix* m, unsigned short int comp) {
+	if (comp == 1) {
+		size_t sz = (size_t)m->rows * m->cols;
+		for (size_t k = 0; k < sz; k++) m->data[k] *= n;
+		return m;
+	}
 	Matrix* mat = matrix_copy(m);
-	for (int i = 0; i < m->rows; i++) {
-		for (int j = 0; j < m->cols; j++) {
-			mat->entries[i][j] *= n;
-		}
-	}
-	if (comp == 1){
-		matrix_free(m);
-	}
+	size_t sz = (size_t)m->rows * m->cols;
+	for (size_t k = 0; k < sz; k++) mat->data[k] *= n;
 	return mat;
 }
 
 Matrix* sqrm(Matrix* m, unsigned short int comp) {
+	if (comp == 1) {
+		size_t n = (size_t)m->rows * m->cols;
+		for (size_t k = 0; k < n; k++) { double v = m->data[k]; m->data[k] = v * v; }
+		return m;
+	}
 	Matrix* mat = matrix_copy(m);
-	for (int i = 0; i < m->rows; i++) {
-		for (int j = 0; j < m->cols; j++) {
-			mat->entries[i][j] = pow(mat->entries[i][j],2);
-		}
-	}
-	if (comp == 1){
-		matrix_free(m);
-	}
+	size_t n = (size_t)m->rows * m->cols;
+	for (size_t k = 0; k < n; k++) { double v = m->data[k]; mat->data[k] = v * v; }
 	return mat;
 }
 
 Matrix* sqrtm(Matrix* m, unsigned short int comp) {
+	if (comp == 1) {
+		size_t n = (size_t)m->rows * m->cols;
+		for (size_t k = 0; k < n; k++) m->data[k] = sqrt(m->data[k]);
+		return m;
+	}
 	Matrix* mat = matrix_copy(m);
-	for (int i = 0; i < m->rows; i++) {
-		for (int j = 0; j < m->cols; j++) {
-			mat->entries[i][j] = sqrt(mat->entries[i][j]);
-		}
-	}
-	if (comp == 1){
-		matrix_free(m);
-	}
+	size_t n = (size_t)m->rows * m->cols;
+	for (size_t k = 0; k < n; k++) mat->data[k] = sqrt(m->data[k]);
 	return mat;
 }
 
 Matrix* addScalar(double n, Matrix* m, unsigned short int comp) {
+	if (comp == 1) {
+		size_t sz = (size_t)m->rows * m->cols;
+		for (size_t k = 0; k < sz; k++) m->data[k] += n;
+		return m;
+	}
 	Matrix* mat = matrix_copy(m);
-	for (int i = 0; i < m->rows; i++) {
-		for (int j = 0; j < m->cols; j++) {
-			mat->entries[i][j] += n;
-		}
-	}
-	if (comp == 1){
-		matrix_free(m);
-	}
+	size_t sz = (size_t)m->rows * m->cols;
+	for (size_t k = 0; k < sz; k++) mat->data[k] += n;
 	return mat;
 }
 

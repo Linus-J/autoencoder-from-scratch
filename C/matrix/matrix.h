@@ -1,7 +1,8 @@
 #pragma once
 
 typedef struct {
-	double** entries;
+	double *data;      /* flat row-major storage: data[i*cols + j] */
+	double **entries;  /* row pointers into data: entries[i] = &data[i*cols] */
 	int rows;
 	int cols;
 } Matrix;

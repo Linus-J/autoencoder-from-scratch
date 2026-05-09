@@ -11,9 +11,11 @@ Matrix* matrix_create(int row, int col) {
 	Matrix *matrix = malloc(sizeof(Matrix));
 	matrix->rows = row;
 	matrix->cols = col;
-	matrix->entries = malloc(row * sizeof(double*));
+	/* Single contiguous allocation — cache-friendly and BLAS-ready */
+	matrix->data    = malloc((size_t)row * col * sizeof(double));
+	matrix->entries = malloc((size_t)row * sizeof(double*));
 	for (int i = 0; i < row; i++) {
-		matrix->entries[i] = malloc(col * sizeof(double));
+		matrix->entries[i] = &matrix->data[(size_t)i * col];
 	}
 	return matrix;
 }
@@ -27,14 +29,11 @@ void matrix_fill(Matrix *m, double n) {
 }
 
 void matrix_free(Matrix *m) {
-	for (int i = 0; i < m->rows; i++) {
-		free(m->entries[i]);
-		m->entries[i] = NULL;
-	}
+	free(m->data);
+	m->data = NULL;
 	free(m->entries);
 	m->entries = NULL;
 	free(m);
-	m = NULL;
 }
 
 void matrix_print(Matrix* m) {
@@ -49,11 +48,8 @@ void matrix_print(Matrix* m) {
 
 Matrix* matrix_copy(Matrix* m) {
 	Matrix* mat = matrix_create(m->rows, m->cols);
-	for (int i = 0; i < m->rows; i++) {
-		for (int j = 0; j < m->cols; j++) {
-			mat->entries[i][j] = m->entries[i][j];
-		}
-	}
+	size_t n = (size_t)m->rows * m->cols;
+	for (size_t k = 0; k < n; k++) mat->data[k] = m->data[k];
 	return mat;
 }
 

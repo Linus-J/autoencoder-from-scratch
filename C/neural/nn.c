@@ -84,30 +84,31 @@ static bool is_valid_double(double x) {
 }
 
 /*
- * ADAM_UPDATE — one Adam parameter update in place.
+ * ADAM_UPDATE — one Adam parameter update, fully in-place.
  *
- * vd/sd   first/second moment accumulators (replaced in place)
- * grad    gradient matrix (may be consumed by sub-expressions)
- * param   network weight/bias (replaced in place)
+ * vd/sd   first/second moment accumulators (updated in place)
+ * grad    gradient matrix (consumed: freed at end)
+ * param   network weight/bias (updated in place)
  *
- * The macro wraps each expression in its own statement so the caller
- * just writes:  ADAM_UPDATE(vds[i], sds[i], grad_expr, net->someWeight);
+ * All arithmetic is done in a single flat loop over the data array —
+ * no temporary matrix allocations, no malloc/free overhead.
  */
 #define ADAM_UPDATE(vd, sd, grad, param)                                       \
 	do {                                                                       \
-		Matrix* _g      = (grad);                                              \
-		Matrix* _vd_new = add(scale(ADAM_BETA1,           (vd),     0),       \
-		                      scale(1.0 - ADAM_BETA1,     _g,       0), 3);   \
-		matrix_free(vd); (vd) = _vd_new;                                       \
-		Matrix* _sd_new = add(scale(ADAM_BETA2,           (sd),     0),       \
-		                      scale(1.0 - ADAM_BETA2, sqrm(_g, 1),  1), 3);   \
-		matrix_free(sd); (sd) = _sd_new;                                       \
-		Matrix* _step = scale(-(net->learning_rate),                           \
-		                      divide((vd),                                     \
-		                             sqrtm(addScalar(ADAM_EPS, (sd), 0), 1),   \
-		                             2), 1);                                   \
-		Matrix* _new = add((param), _step, 2);                                 \
-		matrix_free(param); (param) = _new;                                    \
+		Matrix* _g = (grad);                                                   \
+		size_t _n = (size_t)(vd)->rows * (vd)->cols;                           \
+		double* _vd = (vd)->data;                                              \
+		double* _sd = (sd)->data;                                              \
+		double* _p  = (param)->data;                                           \
+		double* _gd = _g->data;                                                \
+		double _lr  = net->learning_rate;                                      \
+		for (size_t _k = 0; _k < _n; _k++) {                                  \
+			double g  = _gd[_k];                                               \
+			_vd[_k] = ADAM_BETA1 * _vd[_k] + (1.0 - ADAM_BETA1) * g;         \
+			_sd[_k] = ADAM_BETA2 * _sd[_k] + (1.0 - ADAM_BETA2) * g * g;     \
+			_p[_k] -= _lr * _vd[_k] / (sqrt(_sd[_k]) + ADAM_EPS);            \
+		}                                                                      \
+		matrix_free(_g);                                                       \
 	} while (0)
 
 
